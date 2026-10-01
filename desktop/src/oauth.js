@@ -551,18 +551,21 @@ function begin(rawUrl, win) {
   const flow = armSignin(win, finish)
   const openWhenReady = (port) => {
     if (pending !== flow) return
-    if (win.isDestroyed()) {
+    const release = () => {
       clearTimeout(flow.timer)
-      pending = null
+      if (pending === flow) pending = null
+    }
+    if (win.isDestroyed()) {
+      release()
       return
     }
     if (!port) {
-      clearTimeout(flow.timer)
-      pending = null
+      release()
       console.error('[auth] no loopback listener; refusing the flow rather than sending it somewhere it cannot finish')
-      navigate(win, withParam(originalRedirect, 'error',
-        'Sign-in with a provider could not start: this machine would not give the app a local port '
-        + 'to listen on. Signing in with your email and password still works.'))
+      // Route the failure through finish(), not navigate(): if the user moved
+      // while the listener was starting, finish() preserves that page.
+      flow.finish({ error: 'Sign-in with a provider could not start: this machine would not give the app a local port '
+        + 'to listen on. Signing in with your email and password still works.' })
       return
     }
 
@@ -575,8 +578,7 @@ function begin(rawUrl, win) {
       // starting, so leaving it pending is ten minutes of a window that silently
       // refused to go anywhere, ending in a timeout that blames the user's wait.
       if (pending !== flow) return
-      clearTimeout(flow.timer)
-      pending = null
+      release()
       flow.finish({ error: 'could not open your browser' })
     })
   }

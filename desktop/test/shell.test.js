@@ -1147,6 +1147,23 @@ test('a sign-in click starts the callback listener when startup did not', async 
   fresh.stopCallbackServer()
 })
 
+// The retry path must not widen what is claimable. A crafted redirect_to is
+// still refused before begin() arms a flow or starts a listener.
+test('a sign-in still refuses a foreign redirect during listener startup', () => {
+  const { oauth: fresh } = loadShell({ edition: 'saas' })
+  fresh.stopCallbackServer()
+  opened.length = 0
+  const landed = []
+  const authorize = new URL(SUPABASE)
+  authorize.searchParams.set('provider', 'google')
+  authorize.searchParams.set('redirect_to', 'https://evil.example.com/callback')
+
+  assert.equal(fresh.begin(authorize.toString(), windowStub(landed)), false)
+  assert.deepEqual(opened, [])
+  assert.deepEqual(landed, [])
+  fresh.stopCallbackServer()
+})
+
 describe('startup failure', () => {
   // config validates at require time and throws on a build that is quietly the
   // wrong product. Uncaught, that kills the main process before any window
