@@ -165,8 +165,42 @@ async def test_extract_maps_clean_content(monkeypatch):
     assert kwargs["json_body"] == {"url": URL_OK}
     assert response.provider == "anysearch"
     assert response.results[0].ok
+    assert response.results[0].url == URL_OK
+    assert response.results[0].final_url == URL_OK
     assert response.results[0].title == "Extracted title"
     assert response.results[0].markdown == "# Extracted markdown"
+
+
+@pytest.mark.asyncio
+async def test_extract_preserves_requested_url_when_provider_reports_redirect(
+    monkeypatch,
+):
+    requested_url = "https://site.example/requested"
+    redirected_url = "https://cdn.example/final"
+
+    async def fake_request_json(*args, **kwargs):
+        return {
+            "code": 0,
+            "message": "success",
+            "request_id": REQUEST_ID,
+            "data": {
+                "url": redirected_url,
+                "title": "Redirected title",
+                "content": "# Redirected content",
+            },
+        }
+
+    monkeypatch.setenv("ANYSEARCH_API_KEY", "test-key")
+    monkeypatch.setattr(anysearch, "request_json", fake_request_json)
+
+    response = await anysearch.AnySearchFetchAdapter().fetch(
+        FetchRequest(urls=[requested_url]), {}
+    )
+
+    result = response.results[0]
+    assert result.ok
+    assert result.url == requested_url
+    assert result.final_url == redirected_url
 
 
 @pytest.mark.asyncio

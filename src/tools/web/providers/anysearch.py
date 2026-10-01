@@ -268,7 +268,8 @@ class AnySearchFetchAdapter:
                     )
                 else:
                     by_url[url] = FetchResult(
-                        url=data["url"] or url,
+                        url=url,
+                        final_url=data["url"] or None,
                         title=data["title"] or None,
                         markdown=content,
                     )
