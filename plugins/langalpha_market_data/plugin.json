@@ -33,7 +33,7 @@
         },
         "macro": {
           "description": "Economic indicators, treasury rates, earnings calendar, and macro events",
-          "instruction": "Use for macro-economic data: GDP, CPI, unemployment, treasury yield curve, risk-free rate for DCF, earnings calendar by date range, and economic event calendar. Returns raw JSON.",
+          "instruction": "Use for macro-economic data: GDP, CPI, unemployment, treasury yield curve, risk-free rate for DCF, earnings calendar by date range, economic event calendar, and optional FXMacroData non-US releases/release calendars. Returns raw JSON.",
           "tool_exposure_mode": "summary"
         },
         "options": {

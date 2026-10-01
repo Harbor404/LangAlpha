@@ -20,6 +20,7 @@ from .base import (  # noqa: F401 — re-export
     PriceDataProvider,
 )
 from .financial_data_provider import FinancialDataProvider  # noqa: F401 — re-export
+from .fxmacrodata import get_fxmacrodata_source  # noqa: F401 — re-export
 from .market_data_provider import is_us_symbol, symbol_timezone  # noqa: F401 — re-export
 from .normalize import normalize_bars  # noqa: F401 — re-export
 from .registry import (  # noqa: F401 — re-export

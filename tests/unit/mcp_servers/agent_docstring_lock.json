@@ -478,6 +478,71 @@
       "name"
     ]
   },
+  "mcp:macro:get_macro_announcements": {
+    "doc_lines": [
+      "Fetch official FXMacroData macro releases for one currency — track",
+      "non-US rate decisions, inflation, GDP, payrolls, and yield series.",
+      "",
+      "Args:",
+      "    currency: ISO 4217 code, e.g. \"AUD\", \"EUR\", \"GBP\", \"USD\".",
+      "    indicator: FXMacroData slug, e.g. \"policy_rate\", \"inflation\", \"gdp\".",
+      "    start_date: Optional start date \"YYYY-MM-DD\".",
+      "    end_date: Optional end date \"YYYY-MM-DD\".",
+      "    limit: Rows per page (1-100; default 20).",
+      "    offset: Zero-based row offset for paging (default 0).",
+      "",
+      "Returns:",
+      "    dict: {count, data, source, data_type, currency, indicator,",
+      "    start_date, end_date, pagination}. data rows preserve FXMacroData",
+      "    fields and add value/announcement_datetime_utc aliases; nulls stay",
+      "    null. USD works without a key; other currencies require",
+      "    FXMACRODATA_API_KEY or return client_unavailable. On error:",
+      "    {error: <code>, detail, currency, indicator}."
+    ],
+    "params": [
+      "currency",
+      "end_date",
+      "indicator",
+      "limit",
+      "offset",
+      "start_date"
+    ],
+    "required": [
+      "currency",
+      "indicator"
+    ]
+  },
+  "mcp:macro:get_macro_release_calendar": {
+    "doc_lines": [
+      "Fetch the forward FXMacroData release calendar for one currency — find",
+      "upcoming central-bank decisions, inflation, GDP, jobs, and bond releases.",
+      "",
+      "Args:",
+      "    currency: ISO 4217 code, e.g. \"AUD\", \"EUR\", \"GBP\", \"USD\".",
+      "    indicator: Optional FXMacroData slug filter, e.g. \"inflation\".",
+      "    start_date: Optional start date \"YYYY-MM-DD\".",
+      "    end_date: Optional end date \"YYYY-MM-DD\".",
+      "    timezone: Optional IANA timezone for returned local timestamps.",
+      "",
+      "Returns:",
+      "    dict: {count, data, source, data_type, currency, indicator, start_date,",
+      "    end_date, timezone}. data rows preserve FXMacroData calendar fields and",
+      "    add announcement_datetime_utc when a Unix timestamp is present;",
+      "    nulls stay null. USD works without a key; other currencies require",
+      "    FXMACRODATA_API_KEY or return client_unavailable. On error:",
+      "    {error: <code>, detail, currency}."
+    ],
+    "params": [
+      "currency",
+      "end_date",
+      "indicator",
+      "start_date",
+      "timezone"
+    ],
+    "required": [
+      "currency"
+    ]
+  },
   "mcp:macro:get_market_risk_premium": {
     "doc_lines": [
       "Fetch market risk premium by country for CAPM/WACC — get the equity risk",

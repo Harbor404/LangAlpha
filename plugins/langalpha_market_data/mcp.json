@@ -35,7 +35,8 @@
         "plugins/langalpha_market_data/macro_mcp_server.py"
       ],
       "env": {
-        "FMP_API_KEY": "${FMP_API_KEY}"
+        "FMP_API_KEY": "${FMP_API_KEY}",
+        "FXMACRODATA_API_KEY": "${FXMACRODATA_API_KEY}"
       }
     },
     "options": {

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Macro MCP Server.
 
-Raw FMP macro data — economic indicators, treasury rates, risk premium, and
-event calendars — via MCP. Payloads stay vendor-native inside `data`; the
-envelope around them is the standard market-data contract (AGENT_CONTRACT.md).
+Raw FMP macro data plus optional FXMacroData non-US releases and calendars —
+via MCP. Payloads stay vendor-native inside `data`; the envelope around them is
+the standard market-data contract (AGENT_CONTRACT.md).
 
 Tools:
 - get_economic_indicator: Time series for GDP, CPI, unemployment, etc.
@@ -11,6 +11,8 @@ Tools:
 - get_treasury_rates: Full yield curve (1M to 30Y)
 - get_market_risk_premium: Risk premium by country for CAPM/WACC
 - get_earnings_calendar: All companies reporting in a date range
+- get_macro_announcements: Non-US macro releases, optionally via FXMacroData
+- get_macro_release_calendar: Forward macro release calendar via FXMacroData
 """
 
 # NOTE: Tool docstrings in this file are hand-tuned agent prompt surface (parsed
@@ -25,10 +27,13 @@ try:
 except ModuleNotFoundError:  # imported as a package module (tests)
     from mcp_servers._bootstrap import MCPServer
 
-from typing import Optional
 
-
-from data_client.fmp import get_fmp_client, fmp_lifespan
+from data_client.fmp import fmp_lifespan, get_fmp_client
+from data_client.fxmacrodata import (
+    FXMacroDataInvalidArgument,
+    FXMacroDataUnavailable,
+    get_fxmacrodata_source,
+)
 from mcp_servers._envelope import error_from_exception, make_error, make_response
 from mcp_servers._schemas import (
     NULLABLE_STR,
@@ -39,12 +44,14 @@ from mcp_servers._schemas import (
     output_model,
 )
 
-
 mcp = MCPServer("MacroMCP", lifespan=fmp_lifespan)
 
 _SOURCE = "fmp"
 _CLIENT_UNAVAILABLE = "FMP client is unavailable"
 _UPSTREAM_FAILED = "FMP request failed"
+_FX_SOURCE = "fxmacrodata"
+_FX_CLIENT_UNAVAILABLE = "FXMacroData client is unavailable"
+_FX_UPSTREAM_FAILED = "FXMacroData request failed"
 
 
 _OUT_GET_ECONOMIC_INDICATOR = output_model(
@@ -114,8 +121,8 @@ _OUT_GET_ECONOMIC_CALENDAR = output_model(
 
 @mcp.tool()
 async def get_economic_calendar(
-    from_date: Optional[str] = None,
-    to_date: Optional[str] = None,
+    from_date: str | None = None,
+    to_date: str | None = None,
 ) -> _OUT_GET_ECONOMIC_CALENDAR:
     """Fetch economic events with prior, estimate, and actual values — build a
     catalyst calendar, generate a morning note, or track Fed meetings, jobs
@@ -168,8 +175,8 @@ _OUT_GET_TREASURY_RATES = output_model(
 
 @mcp.tool()
 async def get_treasury_rates(
-    from_date: Optional[str] = None,
-    to_date: Optional[str] = None,
+    from_date: str | None = None,
+    to_date: str | None = None,
 ) -> _OUT_GET_TREASURY_RATES:
     """Fetch US Treasury rates across the full yield curve (1M to 30Y) — get the
     risk-free rate for DCF/WACC (typically 10Y), read the curve shape, or track
@@ -280,7 +287,9 @@ async def get_earnings_calendar(
         return make_error("client_unavailable", _CLIENT_UNAVAILABLE)
 
     try:
-        data = await client.get_earnings_calendar_by_date(from_date=from_date, to_date=to_date)
+        data = await client.get_earnings_calendar_by_date(
+            from_date=from_date, to_date=to_date
+        )
 
         return make_response(
             data or [],
@@ -292,6 +301,191 @@ async def get_earnings_calendar(
 
     except Exception as e:  # noqa: BLE001
         return error_from_exception(e, _UPSTREAM_FAILED)
+
+
+_OUT_GET_MACRO_ANNOUNCEMENTS = output_model(
+    "GetMacroAnnouncementsOut",
+    envelope_schema(
+        RECORDS,
+        echo={
+            "data_type": STR,
+            "currency": described(STR, "Echoed ISO 4217 currency code."),
+            "indicator": described(STR, "Echoed FXMacroData indicator slug."),
+            "start_date": NULLABLE_STR,
+            "end_date": NULLABLE_STR,
+        },
+    ),
+)
+
+
+@mcp.tool()
+async def get_macro_announcements(
+    currency: str,
+    indicator: str,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> _OUT_GET_MACRO_ANNOUNCEMENTS:
+    """Fetch official FXMacroData macro releases for one currency — track
+    non-US rate decisions, inflation, GDP, payrolls, and yield series.
+
+    Args:
+        currency: ISO 4217 code, e.g. "AUD", "EUR", "GBP", "USD".
+        indicator: FXMacroData slug, e.g. "policy_rate", "inflation", "gdp".
+        start_date: Optional start date "YYYY-MM-DD".
+        end_date: Optional end date "YYYY-MM-DD".
+        limit: Rows per page (1-100; default 20).
+        offset: Zero-based row offset for paging (default 0).
+
+    Returns:
+        dict: {count, data, source, data_type, currency, indicator,
+        start_date, end_date, pagination}. data rows preserve FXMacroData
+        fields and add value/announcement_datetime_utc aliases; nulls stay
+        null. USD works without a key; other currencies require
+        FXMACRODATA_API_KEY or return client_unavailable. On error:
+        {error: <code>, detail, currency, indicator}.
+    """
+    try:
+        source = await get_fxmacrodata_source()
+    except Exception:  # noqa: BLE001
+        return make_error(
+            "client_unavailable",
+            _FX_CLIENT_UNAVAILABLE,
+            currency=currency,
+            indicator=indicator,
+        )
+
+    try:
+        payload = await source.get_macro_announcements(
+            currency,
+            indicator,
+            start_date=start_date,
+            end_date=end_date,
+            limit=limit,
+            offset=offset,
+        )
+    except Exception as exc:  # noqa: BLE001
+        # Tests and the server can import the data client under both ``src.``
+        # and bare ``data_client`` identities; compare the stable class name so
+        # the same failure maps consistently across those import paths.
+        if isinstance(exc, FXMacroDataUnavailable) or type(exc).__name__ == (
+            "FXMacroDataUnavailable"
+        ):
+            return make_error(
+                "client_unavailable",
+                str(exc),
+                currency=currency,
+                indicator=indicator,
+            )
+        if isinstance(exc, FXMacroDataInvalidArgument) or type(exc).__name__ == (
+            "FXMacroDataInvalidArgument"
+        ):
+            return make_error(
+                "invalid_argument",
+                str(exc),
+                currency=currency,
+                indicator=indicator,
+            )
+        return error_from_exception(
+            exc,
+            _FX_UPSTREAM_FAILED,
+            currency=currency,
+            indicator=indicator,
+        )
+
+    return make_response(
+        payload.get("data", []),
+        source=_FX_SOURCE,
+        data_type="macro_announcements",
+        currency=payload.get("currency", currency),
+        indicator=payload.get("indicator", indicator),
+        start_date=start_date,
+        end_date=end_date,
+        limit=limit,
+        offset=offset,
+        pagination=payload.get("pagination"),
+    )
+
+
+_OUT_GET_MACRO_RELEASE_CALENDAR = output_model(
+    "GetMacroReleaseCalendarOut",
+    envelope_schema(
+        RECORDS,
+        echo={
+            "data_type": STR,
+            "currency": described(STR, "Echoed ISO 4217 currency code."),
+            "indicator": NULLABLE_STR,
+            "start_date": NULLABLE_STR,
+            "end_date": NULLABLE_STR,
+            "timezone": NULLABLE_STR,
+        },
+    ),
+)
+
+
+@mcp.tool()
+async def get_macro_release_calendar(
+    currency: str,
+    indicator: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    timezone: str | None = None,
+) -> _OUT_GET_MACRO_RELEASE_CALENDAR:
+    """Fetch the forward FXMacroData release calendar for one currency — find
+    upcoming central-bank decisions, inflation, GDP, jobs, and bond releases.
+
+    Args:
+        currency: ISO 4217 code, e.g. "AUD", "EUR", "GBP", "USD".
+        indicator: Optional FXMacroData slug filter, e.g. "inflation".
+        start_date: Optional start date "YYYY-MM-DD".
+        end_date: Optional end date "YYYY-MM-DD".
+        timezone: Optional IANA timezone for returned local timestamps.
+
+    Returns:
+        dict: {count, data, source, data_type, currency, indicator, start_date,
+        end_date, timezone}. data rows preserve FXMacroData calendar fields and
+        add announcement_datetime_utc when a Unix timestamp is present;
+        nulls stay null. USD works without a key; other currencies require
+        FXMACRODATA_API_KEY or return client_unavailable. On error:
+        {error: <code>, detail, currency}.
+    """
+    try:
+        source = await get_fxmacrodata_source()
+    except Exception:  # noqa: BLE001
+        return make_error(
+            "client_unavailable", _FX_CLIENT_UNAVAILABLE, currency=currency
+        )
+
+    try:
+        payload = await source.get_macro_release_calendar(
+            currency,
+            indicator=indicator,
+            start_date=start_date,
+            end_date=end_date,
+            timezone=timezone,
+        )
+    except Exception as exc:  # noqa: BLE001
+        if isinstance(exc, FXMacroDataUnavailable) or type(exc).__name__ == (
+            "FXMacroDataUnavailable"
+        ):
+            return make_error("client_unavailable", str(exc), currency=currency)
+        if isinstance(exc, FXMacroDataInvalidArgument) or type(exc).__name__ == (
+            "FXMacroDataInvalidArgument"
+        ):
+            return make_error("invalid_argument", str(exc), currency=currency)
+        return error_from_exception(exc, _FX_UPSTREAM_FAILED, currency=currency)
+
+    return make_response(
+        payload.get("data", []),
+        source=_FX_SOURCE,
+        data_type="macro_release_calendar",
+        currency=payload.get("currency", currency),
+        indicator=payload.get("indicator", indicator),
+        start_date=start_date,
+        end_date=end_date,
+        timezone=payload.get("timezone", timezone),
+    )
 
 
 if __name__ == "__main__":
