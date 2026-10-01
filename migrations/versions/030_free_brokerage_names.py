@@ -37,15 +37,18 @@ depends_on = None
 # Pinned, not imported: a migration repairs the database as it was the day it
 # ran, and BROKERAGES is free to grow afterwards.
 #
-# The address comes along because the name alone cannot tell a row that predates
+# The host comes along because the name alone cannot tell a row that predates
 # the reservation from the connector itself -- on any database where the feature
 # has already run (a dev stack, a staging box) the connector IS a user-tier row
 # under exactly this name, and renaming it would break the thing being shipped.
 # A row pointing at the vendor's own host is the connector and is left alone;
-# anything else under the name is somebody's own server and moves aside. Prefix
-# rather than equality, matching how the app resolves a row to a vendor: the URL
-# is the user's to edit once the row exists, and a sibling path on the vendor's
-# host is still that vendor.
+# anything else under the name is somebody's own server and moves aside. The
+# host, not a textual prefix of the whole URL, is what ``brokerage_for_url``
+# matches on, so the two have to agree: a prefix reads ``HTTPS://AGENT.ROBINHOOD
+# .COM/mcp`` as somebody else and renames a live connection out from under it,
+# while an address that merely starts with the same characters but belongs to
+# another host (``agent.robinhood.com.evil.com``) is not the vendor and must
+# still move aside.
 #
 # Plugin-owned rows are the exception to that exemption, whatever they point at.
 # The connector this migration protects is never owned by a plugin, so a
@@ -57,9 +60,9 @@ depends_on = None
 # rename is safe there because a plugin tracks its servers by
 # `plugin_server_key`, not by name.
 _SHIPPED = """(VALUES
-    ('robinhood', 'https://agent.robinhood.com/'),
-    ('ibkr', 'https://api.ibkr.com/')
-) AS shipped(name, vendor_url)"""
+    ('robinhood', 'agent.robinhood.com'),
+    ('ibkr', 'api.ibkr.com')
+) AS shipped(name, vendor_host)"""
 _RESERVED = "('robinhood', 'ibkr')"
 
 
@@ -117,7 +120,21 @@ def upgrade() -> None:
           JOIN {_SHIPPED} ON shipped.name = u.name
          WHERE u.plugin_id IS NOT NULL
             OR u.url IS NULL
-            OR u.url NOT LIKE shipped.vendor_url || '%'
+            OR lower(btrim(
+                   regexp_replace(
+                       regexp_replace(
+                           regexp_replace(
+                               btrim(u.url),
+                               '^[a-zA-Z][a-zA-Z0-9+.-]*://([^/?#]*)([/?#].*)?$',
+                               '\\1'
+                           ),
+                           '^\\[.*\\]',
+                           ''
+                       ),
+                       ':[0-9]+$',
+                       ''
+                   )
+               )) <> shipped.vendor_host
     """)
 
     op.execute("""
