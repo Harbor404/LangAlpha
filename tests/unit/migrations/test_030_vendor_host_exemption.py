@@ -52,7 +52,7 @@ def _host_of(url: str | None) -> str | None:
     if not url:
         return None
     authority = re.sub(
-        r"^[a-zA-Z][a-zA-Z0-9+.-]*://([^/?#]*)([/?#].*)?$", r"\1", url.strip()
+        r"^[a-zA-Z][a-zA-Z0-9+.-]*://([^/?#]*@)?([^/?#]*)([/?#].*)?$", r"\2", url.strip()
     )
     authority = re.sub(r"^\[.*\]", "", authority)
     authority = re.sub(r":[0-9]+$", "", authority)
@@ -72,6 +72,7 @@ def test_registers_in_the_linear_chain(migration):
 @pytest.mark.parametrize(
     "url,vendor_host,expected",
     [
+        ("https://user@AGENT.ROBINHOOD.COM/mcp", "agent.robinhood.com", True),
         ("https://agent.robinhood.com/mcp/trading", "agent.robinhood.com", True),
         ("HTTPS://AGENT.ROBINHOOD.COM/mcp/trading", "agent.robinhood.com", True),
         ("https://Agent.Robinhood.com/mcp/trading", "agent.robinhood.com", True),
