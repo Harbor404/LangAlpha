@@ -73,6 +73,8 @@ class JawzClient:
             raise JawzError("client_unavailable", "Jawz client is unavailable")
 
         request_id = 1
+        # Jawz's published read surface accepts one-shot tools/call requests
+        # without an initialize handshake; keep that assumption at the boundary.
         body = {
             "jsonrpc": "2.0",
             "id": request_id,
@@ -267,7 +269,8 @@ async def get_liquidity_history(
                 "get_liquidity_history",
                 {"lookback_weeks": lookback_weeks, "interval": interval},
             )
-        rows = data.get("data", {}).get("rows")
+        nested = data.get("data")
+        rows = nested.get("rows") if isinstance(nested, dict) else None
         if not isinstance(rows, list):
             return _invalid_response("liquidity-history")
     except JawzError as exc:

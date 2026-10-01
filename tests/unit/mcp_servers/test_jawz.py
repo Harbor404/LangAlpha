@@ -258,6 +258,22 @@ async def test_invalid_or_error_responses_fail_closed_without_echoing_remote_tex
 
 
 @pytest.mark.asyncio
+async def test_liquidity_history_rejects_a_non_object_data_payload(fake_jawz):
+    from plugins.jawz.jawz_mcp_server import get_liquidity_history
+
+    fake_jawz(result={"data": "SECRET"})
+
+    result = await get_liquidity_history()
+
+    assert_error(
+        result,
+        "upstream_error",
+        detail_contains="invalid liquidity-history",
+        detail_excludes=("SECRET",),
+    )
+
+
+@pytest.mark.asyncio
 async def test_adapter_converts_unexpected_exceptions_to_a_sanitized_envelope(
     fake_jawz,
 ):
