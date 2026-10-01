@@ -84,6 +84,29 @@ async def test_ptc_read_activation_announces_the_skill_in_the_read_result() -> N
 
 
 @pytest.mark.asyncio
+async def test_ptc_read_activation_annotates_list_content() -> None:
+    """Multimodal/list ToolMessage content must retain its blocks and gain the note."""
+
+    async def handler(_request):
+        return ToolMessage(
+            content=[{"type": "text", "text": "# Demo"}],
+            tool_call_id="call-4",
+            name="Read",
+        )
+
+    command = await _ptc_middleware().awrap_tool_call(
+        _ReadRequest("skills/demo/SKILL.md"),
+        handler,
+    )
+
+    blocks = command.update["messages"][0].content
+    assert blocks[0] == {"type": "text", "text": "# Demo"}
+    assert blocks[-1]["type"] == "text"
+    assert "[Skill activated: demo]" in blocks[-1]["text"]
+    assert "direct tool calls" in blocks[-1]["text"]
+
+
+@pytest.mark.asyncio
 async def test_ptc_read_of_an_unregistered_skill_md_is_untouched() -> None:
     async def handler(_request):
         return ToolMessage(content="# Other", tool_call_id="call-2", name="Read")

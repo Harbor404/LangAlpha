@@ -510,15 +510,18 @@ class SkillsMiddleware(AgentMiddleware):
 
         The file content is preserved; only a trailing note is added.
         """
-        if not isinstance(result.content, str):
-            return result
-
         note = (
-            f"\n\n[Skill activated: {skill_name}] "
+            f"[Skill activated: {skill_name}] "
             "This skill is active; its listed tools are usable now as direct tool calls. "
             "Do not use Bash, Glob, or Grep to verify tool availability."
         )
-        return result.model_copy(update={"content": result.content + note})
+        if isinstance(result.content, str):
+            content = result.content + f"\n\n{note}"
+        elif isinstance(result.content, list):
+            content = [*result.content, {"type": "text", "text": note}]
+        else:
+            return result
+        return result.model_copy(update={"content": content})
 
     def _match_skill_from_read(self, tool_name: str, tool_args: dict) -> str | None:
         """Check if a Read tool call targets a registered skill's SKILL.md.
