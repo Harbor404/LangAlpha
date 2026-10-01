@@ -106,14 +106,10 @@ def _load_manifest() -> Dict[str, Any]:
         with open(_MANIFEST_PATH) as f:
             return json.load(f)
     except Exception as e:
-        raise RuntimeError(
-            f"Failed to load web provider manifest {_MANIFEST_PATH}: {e}"
-        )
+        raise RuntimeError(f"Failed to load web provider manifest {_MANIFEST_PATH}: {e}")
 
 
-def _parse_capability(
-    provider: str, verb: str, entry: Dict[str, Any]
-) -> CapabilitySpec:
+def _parse_capability(provider: str, verb: str, entry: Dict[str, Any]) -> CapabilitySpec:
     levels = tuple(
         LevelSpec(
             name=lv["name"],
@@ -203,9 +199,7 @@ def get_capability(provider: str, verb: str) -> Optional[CapabilitySpec]:
 def providers_with_capability(verb: str) -> Mapping[str, WebProviderSpec]:
     """Providers offering a verb, in manifest order."""
     return {
-        name: spec
-        for name, spec in get_web_providers().items()
-        if spec.capability(verb)
+        name: spec for name, spec in get_web_providers().items() if spec.capability(verb)
     }
 
 
