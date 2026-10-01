@@ -204,6 +204,30 @@ async def test_release_calendar_uses_calendar_path_and_normalizes_rows():
 
 
 @pytest.mark.asyncio
+async def test_comm_release_calendar_accepts_shared_currency_code():
+    seen: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["path"] = request.url.path
+        return httpx.Response(
+            200,
+            json={"currency": "COMM", "data": []},
+            request=request,
+        )
+
+    source = FXMacroDataSource(
+        client=FXMacroDataClient(
+            api_key="test-key", transport=httpx.MockTransport(handler)
+        )
+    )
+
+    result = await source.get_macro_release_calendar("comm")
+
+    assert seen["path"] == "/v1/calendar/COMM"
+    assert result["currency"] == "COMM"
+
+
+@pytest.mark.asyncio
 async def test_http_error_is_sanitized_and_maps_status():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(

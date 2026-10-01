@@ -40,7 +40,6 @@ ANNOUNCEMENT_CURRENCIES = frozenset(
 CALENDAR_CURRENCIES = ANNOUNCEMENT_CURRENCIES | {"COMM"}
 KEYLESS_CURRENCIES = frozenset({"USD"})
 
-_CURRENCY_RE = re.compile(r"^[A-Z]{3}$")
 _INDICATOR_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
@@ -55,7 +54,7 @@ class FXMacroDataInvalidArgument(FXMacroDataError):
 def _currency(value: str, *, calendar: bool = False) -> str:
     normalized = value.strip().upper()
     supported = CALENDAR_CURRENCIES if calendar else ANNOUNCEMENT_CURRENCIES
-    if not _CURRENCY_RE.match(normalized) or normalized not in supported:
+    if normalized not in supported:
         raise FXMacroDataInvalidArgument(
             f"Unsupported FXMacroData currency: {normalized or value!r}"
         )
