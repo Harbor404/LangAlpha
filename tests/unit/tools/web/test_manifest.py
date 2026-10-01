@@ -21,9 +21,16 @@ from src.tools.web.manifest import (
 class TestManifestLoading:
     def test_loads_known_providers(self):
         providers = get_web_providers()
-        assert {"tavily", "serper", "bocha", "exa", "parallel", "anysearch", "firecrawl", "inhouse"} <= set(
-            providers
-        )
+        assert {
+            "tavily",
+            "serper",
+            "bocha",
+            "exa",
+            "parallel",
+            "anysearch",
+            "firecrawl",
+            "inhouse",
+        } <= set(providers)
 
     def test_search_capable_providers(self):
         assert {"tavily", "serper", "bocha", "exa", "parallel", "anysearch"} == set(
@@ -36,6 +43,7 @@ class TestManifestLoading:
         assert "anysearch" in fetchers
         assert fetchers["inhouse"].env_key is None
         assert fetchers["anysearch"].env_key == "ANYSEARCH_API_KEY"
+        assert fetchers["anysearch"].auth_required is False
 
     def test_firecrawl_offers_crawl(self):
         cap = get_web_providers()["firecrawl"].capability("crawl")
@@ -79,7 +87,12 @@ class TestManifestLoading:
     def test_levels_arrive_in_manifest_order(self):
         """Tavily's search levels arrive in manifest (fastest → deepest) order."""
         cap = get_capability("tavily", CAPABILITY_SEARCH)
-        assert [lv.name for lv in cap.levels] == ["ultra_fast", "fast", "standard", "deep"]
+        assert [lv.name for lv in cap.levels] == [
+            "ultra_fast",
+            "fast",
+            "standard",
+            "deep",
+        ]
 
     def test_level_lookup_unknown_returns_none(self):
         cap = get_capability("tavily", CAPABILITY_SEARCH)
@@ -103,9 +116,7 @@ class TestValidation:
             wm.get_web_providers.cache_clear()
 
     def _provider(self, cap_entry, verb="search"):
-        return {
-            "providers": {"x": {"capabilities": {verb: cap_entry}}}
-        }
+        return {"providers": {"x": {"capabilities": {verb: cap_entry}}}}
 
     def test_duplicate_level_names_rejected(self, monkeypatch):
         bad = self._provider(
@@ -150,7 +161,9 @@ class TestValidation:
             self._load(monkeypatch, bad)
 
     def test_capability_without_levels_rejected(self, monkeypatch):
-        bad = self._provider({"tracking_name": "XTool", "default_level": "a", "levels": []})
+        bad = self._provider(
+            {"tracking_name": "XTool", "default_level": "a", "levels": []}
+        )
         with pytest.raises(RuntimeError, match="no levels"):
             self._load(monkeypatch, bad)
 

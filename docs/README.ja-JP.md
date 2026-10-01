@@ -437,7 +437,8 @@ make up       # PostgreSQL、Redis、backend、frontend を起動
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
 | `DAYTONA_API_KEY`                    | session をまたいで workspace を維持できる persistent cloud sandboxes（[daytona.io](https://www.daytona.io/)）          |
 | `FMP_API_KEY`                        | 高品質な fundamentals、macro、SEC filings、options（[free tier available](https://site.financialmodelingprep.com/)）   |
-| `SERPER_API_KEY`、`TAVILY_API_KEY`、`EXA_API_KEY`、`PARALLEL_API_KEY` または `ANYSEARCH_API_KEY` | Web search（いずれか一つで有効化）                                                |
+| `SERPER_API_KEY`、`TAVILY_API_KEY`、`EXA_API_KEY` または `PARALLEL_API_KEY` | keyed provider による Web search（いずれか一つでその provider を有効化）                                                |
+| `ANYSEARCH_API_KEY`                  | AnySearch の optional credential。未設定でも anonymous search / fetch を利用可能                                         |
 | `FIRECRAWL_API_KEY`                  | Web fetch と site crawling の強化（組み込みクローラーはキー不要）                                                     |
 | `LANGSMITH_API_KEY`                  | LangGraph runs の LangSmith tracing                                                                                    |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`        | OpenTelemetry traces と metrics を任意の OTLP backend（Jaeger、Grafana Tempo、Datadog、Honeycomb など）へ送信          |

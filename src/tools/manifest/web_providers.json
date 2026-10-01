@@ -348,6 +348,7 @@
     "anysearch": {
       "display_name": "AnySearch",
       "env_key": "ANYSEARCH_API_KEY",
+      "auth_required": false,
       "capabilities": {
         "search": {
           "tracking_name": "AnySearchSearchTool",

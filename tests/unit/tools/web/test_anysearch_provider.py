@@ -169,10 +169,43 @@ async def test_extract_maps_clean_content(monkeypatch):
     assert response.results[0].markdown == "# Extracted markdown"
 
 
-def test_missing_api_key_is_disabled(monkeypatch):
+@pytest.mark.asyncio
+async def test_anonymous_search_omits_authorization(monkeypatch):
+    calls = []
+
+    async def fake_request_json(method, url, **kwargs):
+        calls.append((method, url, kwargs))
+        return _search_payload()
+
     monkeypatch.delenv("ANYSEARCH_API_KEY", raising=False)
-    with pytest.raises(ValueError, match="ANYSEARCH_API_KEY"):
-        anysearch.AnySearchAPI()
+    monkeypatch.setattr(anysearch, "request_json", fake_request_json)
+
+    await anysearch.AnySearchAPI().search("anonymous query")
+
+    headers = calls[0][2]["headers"]
+    assert "Authorization" not in headers
+    assert headers["Content-Type"] == "application/json"
+
+
+@pytest.mark.asyncio
+async def test_anonymous_fetch_omits_authorization(monkeypatch):
+    calls = []
+
+    async def fake_request_json(method, url, **kwargs):
+        calls.append((method, url, kwargs))
+        return _extract_payload()
+
+    monkeypatch.delenv("ANYSEARCH_API_KEY", raising=False)
+    monkeypatch.setattr(anysearch, "request_json", fake_request_json)
+
+    response = await anysearch.AnySearchFetchAdapter().fetch(
+        FetchRequest(urls=[URL_OK]), {}
+    )
+
+    headers = calls[0][2]["headers"]
+    assert "Authorization" not in headers
+    assert headers["Content-Type"] == "application/json"
+    assert response.results[0].ok
 
 
 @pytest.mark.asyncio
@@ -279,7 +312,7 @@ async def test_invalid_extract_response_is_fail_closed(monkeypatch):
     assert "invalid response" in error.message.lower()
 
 
-def test_anysearch_is_discovered_and_config_gated(monkeypatch):
+def test_anysearch_is_discovered_with_optional_auth(monkeypatch):
     from src.tools.web.manifest import (
         CAPABILITY_FETCH,
         CAPABILITY_SEARCH,
@@ -293,13 +326,14 @@ def test_anysearch_is_discovered_and_config_gated(monkeypatch):
     spec = get_web_provider_spec("anysearch")
     assert spec is not None
     assert spec.env_key == "ANYSEARCH_API_KEY"
+    assert spec.auth_required is False
     assert get_capability("anysearch", CAPABILITY_SEARCH) is not None
     assert get_capability("anysearch", CAPABILITY_FETCH) is not None
     assert "anysearch" in _PROVIDER_BUILDERS
     assert "anysearch" in _ADAPTER_BUILDERS
 
     monkeypatch.delenv("ANYSEARCH_API_KEY", raising=False)
-    assert provider_is_configured(spec) is False
+    assert provider_is_configured(spec) is True
     monkeypatch.setenv("ANYSEARCH_API_KEY", "test-key")
     assert provider_is_configured(spec) is True
 

@@ -3,7 +3,7 @@
 Contract source: https://anysearch.com/docs/api-endpoints. ``POST /v1/search``
 returns a shared ``{code, message, request_id, data}`` envelope; ``POST
 /v1/extract`` accepts exactly one URL and returns cleaned content. Both calls
-use the existing httpx stack and Bearer authentication from
+use the existing httpx stack and optional Bearer authentication from
 ``ANYSEARCH_API_KEY``. Provider responses are never echoed into errors or logs:
 the 402 quota flow may contain generated credentials in its message.
 """
@@ -17,9 +17,7 @@ from langchain_core.tools import tool
 
 from src.tools.web.providers._shared import (
     SNIPPET_MAX,
-    error_response,
     lazy,
-    missing_key_error,
     request_json,
     result_card,
 )
@@ -36,10 +34,6 @@ logger = logging.getLogger(__name__)
 
 _BASE_URL = "https://api.anysearch.com"
 _TIMEOUT = 60.0
-
-
-class AnySearchConfigurationError(ValueError):
-    """AnySearch is selected but its required API key is missing."""
 
 
 class AnySearchResponseError(ValueError):
@@ -124,15 +118,10 @@ class AnySearchAPI:
 
     def __init__(self, api_key: str | None = None):
         self.api_key = api_key or os.getenv("ANYSEARCH_API_KEY", "")
-        if not self.api_key:
-            raise AnySearchConfigurationError(
-                "ANYSEARCH_API_KEY not provided or found in environment"
-            )
         self.base_url = _BASE_URL
-        self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
+        self.headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            self.headers["Authorization"] = f"Bearer {self.api_key}"
 
     async def _request(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
         return await request_json(
@@ -236,10 +225,7 @@ class AnySearchFetchAdapter:
     async def fetch(
         self, req: FetchRequest, native_params: dict[str, Any]
     ) -> FetchResponse:
-        try:
-            api = AnySearchAPI()
-        except AnySearchConfigurationError as e:
-            return error_response(req.urls, missing_key_error(str(e)), self.name)
+        api = AnySearchAPI()
 
         by_url: dict[str, FetchResult] = {}
         for url in req.urls:
@@ -352,6 +338,10 @@ def build_web_search_tool(
             params: Optional provider-native parameters for the selected tag.
             zone: Optional region, ``cn`` or ``intl``.
             language: Optional preferred language such as ``zh-CN`` or ``en``.
+
+        Returns:
+            Page dictionaries with ``title``, ``url``, and ``content``, or a
+            ``Search failed: ...`` string when the request fails.
         """
         try:
             results, metadata = await _get_api_wrapper().search(
@@ -369,9 +359,6 @@ def build_web_search_tool(
         except httpx.TimeoutException:
             logger.error("AnySearch search timed out")
             return _search_error("AnySearch request timed out", query)
-        except AnySearchConfigurationError:
-            logger.error("AnySearch search is not configured")
-            return _search_error("AnySearch is not configured", query)
         except (httpx.HTTPError, AnySearchResponseError, ValueError, TypeError):
             logger.error("AnySearch search returned an invalid or failed response")
             return _search_error("AnySearch returned an invalid response", query)

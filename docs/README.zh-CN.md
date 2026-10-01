@@ -452,7 +452,8 @@ make up       # 启动 PostgreSQL、Redis、后端和前端
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
 | `DAYTONA_API_KEY`                    | 持久的云 sandbox，支持跨 session 的 workspace（[daytona.io](https://www.daytona.io/)）                                   |
 | `FMP_API_KEY`                        | 高质量的基本面、宏观、SEC 文件、期权（[有免费额度](https://site.financialmodelingprep.com/)）                            |
-| `SERPER_API_KEY`、`TAVILY_API_KEY`、`EXA_API_KEY`、`PARALLEL_API_KEY` 或 `ANYSEARCH_API_KEY` | 网页搜索（任一即可启用）                                                            |
+| `SERPER_API_KEY`、`TAVILY_API_KEY`、`EXA_API_KEY` 或 `PARALLEL_API_KEY` | 通过带密钥的 provider 进行网页搜索（任一即可启用该 provider）                                                            |
+| `ANYSEARCH_API_KEY`                  | AnySearch 可选凭证；不配置也可进行匿名搜索和网页抓取                                                                    |
 | `FIRECRAWL_API_KEY`                  | 升级网页抓取与站点爬取（内置爬虫无需密钥）                                                                              |
 | `LANGSMITH_API_KEY`                  | 为 LangGraph 运行提供 LangSmith 追踪                                                                                    |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`        | 把 OpenTelemetry 的 trace 和 metric 发到任意 OTLP 后端（Jaeger、Grafana Tempo、Datadog、Honeycomb 等）                  |

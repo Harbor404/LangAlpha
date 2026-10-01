@@ -30,7 +30,9 @@ class TestProviderRegistry:
         from src.tools.web.manifest import CAPABILITY_SEARCH, providers_with_capability
         from src.tools.web.search import _PROVIDER_BUILDERS
 
-        assert set(providers_with_capability(CAPABILITY_SEARCH)) == set(_PROVIDER_BUILDERS)
+        assert set(providers_with_capability(CAPABILITY_SEARCH)) == set(
+            _PROVIDER_BUILDERS
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -65,9 +67,12 @@ class TestGetWebSearchToolRouting:
         with (
             patch("src.tools.web.search.SELECTED_SEARCH_ENGINE", "serper"),
             patch.dict("sys.modules", {"src.tools.web.providers.serper": mock_module}),
-            patch("src.tools.web.search.create_logged_tool", return_value=mock_tool) as mock_create,
+            patch(
+                "src.tools.web.search.create_logged_tool", return_value=mock_tool
+            ) as mock_create,
         ):
             from src.tools.web.search import get_web_search_tool
+
             result = get_web_search_tool(max_search_results=5, time_range="w")
 
         mock_build.assert_called_once_with(
@@ -80,6 +85,7 @@ class TestGetWebSearchToolRouting:
         """An unknown deployment-default engine string raises ValueError."""
         with patch("src.tools.web.search.SELECTED_SEARCH_ENGINE", "unknown_engine"):
             from src.tools.web.search import get_web_search_tool
+
             with pytest.raises(ValueError, match="Unsupported search engine"):
                 get_web_search_tool(max_search_results=5)
 
@@ -95,6 +101,7 @@ class TestGetWebSearchToolRouting:
             patch("src.tools.web.search.create_logged_tool", return_value=mock_tool),
         ):
             from src.tools.web.search import get_web_search_tool
+
             result = get_web_search_tool(
                 max_search_results=10, time_range="m", verbose=False
             )
@@ -113,10 +120,10 @@ class TestGetWebSearchToolRouting:
 class TestGetWebSearchToolProviderOverride:
     """The ``provider`` arg overrides ``SELECTED_SEARCH_ENGINE`` per request.
 
-    A configured engine selects that provider's builder; an unknown or
-    unconfigured override logs a warning and falls back to the deployment
-    default; ``None`` is a no-op so the default engine is used. Provider
-    modules are mocked here to assert which builder ran.
+    A configured or optional-auth engine selects that provider's builder; an
+    unknown or unconfigured override logs a warning and falls back to the
+    deployment default; ``None`` is a no-op so the default engine is used.
+    Provider modules are mocked here to assert which builder ran.
     """
 
     def test_provider_serper_selects_serper_builder(self, monkeypatch):
@@ -127,7 +134,9 @@ class TestGetWebSearchToolProviderOverride:
         with (
             patch("src.tools.web.search.SELECTED_SEARCH_ENGINE", "tavily"),
             patch.dict("sys.modules", {"src.tools.web.providers.serper": mock_module}),
-            patch("src.tools.web.search.create_logged_tool", return_value=mock_tool) as mock_create,
+            patch(
+                "src.tools.web.search.create_logged_tool", return_value=mock_tool
+            ) as mock_create,
         ):
             from src.tools.web.search import get_web_search_tool
 
@@ -149,7 +158,9 @@ class TestGetWebSearchToolProviderOverride:
         with (
             patch("src.tools.web.search.SELECTED_SEARCH_ENGINE", "serper"),
             patch.dict("sys.modules", {"src.tools.web.providers.tavily": mock_module}),
-            patch("src.tools.web.search.create_logged_tool", return_value=mock_tool) as mock_create,
+            patch(
+                "src.tools.web.search.create_logged_tool", return_value=mock_tool
+            ) as mock_create,
         ):
             from src.tools.web.search import get_web_search_tool
 
@@ -159,7 +170,9 @@ class TestGetWebSearchToolProviderOverride:
             max_results=7, default_time_range=None, verbose=True, search_depth="basic"
         )
         # Multi-depth providers get a depth-qualified tracking key.
-        assert mock_create.call_args.kwargs["tracking_name"] == "TavilySearchTool:standard"
+        assert (
+            mock_create.call_args.kwargs["tracking_name"] == "TavilySearchTool:standard"
+        )
         assert result is mock_tool
 
     def test_provider_bocha_selects_bocha_builder(self, monkeypatch):
@@ -170,7 +183,9 @@ class TestGetWebSearchToolProviderOverride:
         with (
             patch("src.tools.web.search.SELECTED_SEARCH_ENGINE", "tavily"),
             patch.dict("sys.modules", {"src.tools.web.providers.bocha": mock_module}),
-            patch("src.tools.web.search.create_logged_tool", return_value=mock_tool) as mock_create,
+            patch(
+                "src.tools.web.search.create_logged_tool", return_value=mock_tool
+            ) as mock_create,
         ):
             from src.tools.web.search import get_web_search_tool
 
@@ -185,9 +200,9 @@ class TestGetWebSearchToolProviderOverride:
     def test_unconfigured_provider_override_falls_back(self, monkeypatch):
         """A provider whose required key is absent is disabled for overrides."""
         monkeypatch.setenv("TAVILY_API_KEY", "test-key")
-        monkeypatch.delenv("ANYSEARCH_API_KEY", raising=False)
+        monkeypatch.delenv("PARALLEL_API_KEY", raising=False)
         tavily_build, tavily_module = _make_provider_module()
-        anysearch_build, anysearch_module = _make_provider_module()
+        parallel_build, parallel_module = _make_provider_module()
         mock_tool = MagicMock()
 
         with (
@@ -196,14 +211,14 @@ class TestGetWebSearchToolProviderOverride:
                 "sys.modules",
                 {
                     "src.tools.web.providers.tavily": tavily_module,
-                    "src.tools.web.providers.anysearch": anysearch_module,
+                    "src.tools.web.providers.parallel": parallel_module,
                 },
             ),
             patch("src.tools.web.search.create_logged_tool", return_value=mock_tool),
         ):
             from src.tools.web.search import get_web_search_tool
 
-            result = get_web_search_tool(max_search_results=5, provider="anysearch")
+            result = get_web_search_tool(max_search_results=5, provider="parallel")
 
         tavily_build.assert_called_once_with(
             max_results=5,
@@ -211,7 +226,33 @@ class TestGetWebSearchToolProviderOverride:
             verbose=True,
             search_depth="basic",
         )
-        anysearch_build.assert_not_called()
+        parallel_build.assert_not_called()
+        assert result is mock_tool
+
+    def test_optional_auth_provider_override_selects_builder(self, monkeypatch):
+        """AnySearch remains selectable when its optional key is absent."""
+        monkeypatch.setenv("TAVILY_API_KEY", "test-key")
+        monkeypatch.delenv("ANYSEARCH_API_KEY", raising=False)
+        mock_build, mock_module = _make_provider_module()
+        mock_tool = MagicMock()
+
+        with (
+            patch("src.tools.web.search.SELECTED_SEARCH_ENGINE", "tavily"),
+            patch.dict(
+                "sys.modules",
+                {"src.tools.web.providers.anysearch": mock_module},
+            ),
+            patch("src.tools.web.search.create_logged_tool", return_value=mock_tool),
+        ):
+            from src.tools.web.search import get_web_search_tool
+
+            result = get_web_search_tool(max_search_results=5, provider="anysearch")
+
+        mock_build.assert_called_once_with(
+            max_results=5,
+            default_time_range=None,
+            verbose=True,
+        )
         assert result is mock_tool
 
     def test_invalid_provider_falls_back_to_default_and_warns(self, caplog):
@@ -222,7 +263,9 @@ class TestGetWebSearchToolProviderOverride:
         with (
             patch("src.tools.web.search.SELECTED_SEARCH_ENGINE", "serper"),
             patch.dict("sys.modules", {"src.tools.web.providers.serper": mock_module}),
-            patch("src.tools.web.search.create_logged_tool", return_value=mock_tool) as mock_create,
+            patch(
+                "src.tools.web.search.create_logged_tool", return_value=mock_tool
+            ) as mock_create,
             caplog.at_level(logging.WARNING, logger="src.tools.web.search"),
         ):
             from src.tools.web.search import get_web_search_tool
@@ -235,9 +278,7 @@ class TestGetWebSearchToolProviderOverride:
         assert mock_create.call_args.kwargs["tracking_name"] == "SerperSearchTool"
         assert result is mock_tool
         # And warned about the unknown provider.
-        assert any(
-            "not-a-real-engine" in rec.getMessage() for rec in caplog.records
-        )
+        assert any("not-a-real-engine" in rec.getMessage() for rec in caplog.records)
 
     def test_manifest_provider_without_builder_falls_back(self, caplog):
         """A provider present in the manifest but missing from
@@ -245,12 +286,18 @@ class TestGetWebSearchToolProviderOverride:
         degrades to the default engine instead of raising per request."""
         mock_build, mock_module = _make_provider_module()
         mock_tool = MagicMock()
-        builders = {"serper": __import__("src.tools.web.search", fromlist=["x"])._PROVIDER_BUILDERS["serper"]}
+        builders = {
+            "serper": __import__(
+                "src.tools.web.search", fromlist=["x"]
+            )._PROVIDER_BUILDERS["serper"]
+        }
         with (
             patch("src.tools.web.search.SELECTED_SEARCH_ENGINE", "serper"),
             patch("src.tools.web.search._PROVIDER_BUILDERS", builders),
             patch.dict("sys.modules", {"src.tools.web.providers.serper": mock_module}),
-            patch("src.tools.web.search.create_logged_tool", return_value=mock_tool) as mock_create,
+            patch(
+                "src.tools.web.search.create_logged_tool", return_value=mock_tool
+            ) as mock_create,
             caplog.at_level(logging.WARNING, logger="src.tools.web.search"),
         ):
             from src.tools.web.search import get_web_search_tool
@@ -270,7 +317,9 @@ class TestGetWebSearchToolProviderOverride:
         with (
             patch("src.tools.web.search.SELECTED_SEARCH_ENGINE", "tavily"),
             patch.dict("sys.modules", {"src.tools.web.providers.tavily": mock_module}),
-            patch("src.tools.web.search.create_logged_tool", return_value=mock_tool) as mock_create,
+            patch(
+                "src.tools.web.search.create_logged_tool", return_value=mock_tool
+            ) as mock_create,
         ):
             from src.tools.web.search import get_web_search_tool
 
@@ -279,7 +328,9 @@ class TestGetWebSearchToolProviderOverride:
         mock_build.assert_called_once_with(
             max_results=5, default_time_range=None, verbose=True, search_depth="basic"
         )
-        assert mock_create.call_args.kwargs["tracking_name"] == "TavilySearchTool:standard"
+        assert (
+            mock_create.call_args.kwargs["tracking_name"] == "TavilySearchTool:standard"
+        )
         assert result is mock_tool
 
 
@@ -307,7 +358,9 @@ class TestGetWebSearchToolDepth:
         with (
             patch("src.tools.web.search.SELECTED_SEARCH_ENGINE", "tavily"),
             patch.dict("sys.modules", {"src.tools.web.providers.tavily": mock_module}),
-            patch("src.tools.web.search.create_logged_tool", return_value=mock_tool) as mock_create,
+            patch(
+                "src.tools.web.search.create_logged_tool", return_value=mock_tool
+            ) as mock_create,
         ):
             from src.tools.web.search import get_web_search_tool
 
@@ -323,14 +376,18 @@ class TestGetWebSearchToolDepth:
         with (
             patch("src.tools.web.search.SELECTED_SEARCH_ENGINE", "tavily"),
             patch.dict("sys.modules", {"src.tools.web.providers.tavily": mock_module}),
-            patch("src.tools.web.search.create_logged_tool", return_value=mock_tool) as mock_create,
+            patch(
+                "src.tools.web.search.create_logged_tool", return_value=mock_tool
+            ) as mock_create,
         ):
             from src.tools.web.search import get_web_search_tool
 
             get_web_search_tool(max_search_results=5, depth="warp9")
 
         assert mock_build.call_args.kwargs["search_depth"] == "basic"
-        assert mock_create.call_args.kwargs["tracking_name"] == "TavilySearchTool:standard"
+        assert (
+            mock_create.call_args.kwargs["tracking_name"] == "TavilySearchTool:standard"
+        )
 
     def test_depth_ignored_for_single_depth_provider(self):
         """Single-depth providers ignore the depth name and keep the bare
@@ -340,7 +397,9 @@ class TestGetWebSearchToolDepth:
         with (
             patch("src.tools.web.search.SELECTED_SEARCH_ENGINE", "serper"),
             patch.dict("sys.modules", {"src.tools.web.providers.serper": mock_module}),
-            patch("src.tools.web.search.create_logged_tool", return_value=mock_tool) as mock_create,
+            patch(
+                "src.tools.web.search.create_logged_tool", return_value=mock_tool
+            ) as mock_create,
         ):
             from src.tools.web.search import get_web_search_tool
 

@@ -15,7 +15,14 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from ptc_agent.config.agent import AgentConfig, LLMConfig
-from ptc_agent.config.core import DaytonaConfig, FilesystemConfig, LoggingConfig, MCPConfig, SandboxConfig, SecurityConfig
+from ptc_agent.config.core import (
+    DaytonaConfig,
+    FilesystemConfig,
+    LoggingConfig,
+    MCPConfig,
+    SandboxConfig,
+    SecurityConfig,
+)
 from tests.conftest import create_test_app
 
 DB = "src.server.app.api_keys"
@@ -47,11 +54,24 @@ async def client():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as c:
         with (
-            patch(f"{DB}._get_supported_providers", return_value=["openai", "anthropic"]),
-            patch(f"{DB}._get_provider_info_map", return_value={
-                "openai": {"display_name": "OpenAI", "access_type": "api_key", "brand_key": "openai"},
-                "anthropic": {"display_name": "Anthropic", "access_type": "api_key", "brand_key": "anthropic"},
-            }),
+            patch(
+                f"{DB}._get_supported_providers", return_value=["openai", "anthropic"]
+            ),
+            patch(
+                f"{DB}._get_provider_info_map",
+                return_value={
+                    "openai": {
+                        "display_name": "OpenAI",
+                        "access_type": "api_key",
+                        "brand_key": "openai",
+                    },
+                    "anthropic": {
+                        "display_name": "Anthropic",
+                        "access_type": "api_key",
+                        "brand_key": "anthropic",
+                    },
+                },
+            ),
             patch(f"{DB}._build_provider_catalog", return_value=[]),
         ):
             yield c
@@ -189,7 +209,9 @@ class TestListModelsResponse:
         assert resp.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_search_catalog_tracks_anysearch_configuration(self, client, monkeypatch):
+    async def test_search_catalog_includes_anonymous_anysearch(
+        self, client, monkeypatch
+    ):
         mock_models = {}
         mock_mc = MagicMock()
         mock_mc.get_display_name.side_effect = lambda p: p
@@ -205,18 +227,11 @@ class TestListModelsResponse:
             patch("src.llms.llm.LLM", mock_llm_cls),
             patch("src.server.app.setup.agent_config", agent_cfg),
         ):
-            hidden = (await client.get("/api/v1/models")).json()["search_providers"]
+            search_providers = (await client.get("/api/v1/models")).json()[
+                "search_providers"
+            ]
 
-        monkeypatch.setenv("ANYSEARCH_API_KEY", "test-key")
-        with (
-            patch("src.llms.llm.get_configured_llm_models", return_value=mock_models),
-            patch("src.llms.llm.LLM", mock_llm_cls),
-            patch("src.server.app.setup.agent_config", agent_cfg),
-        ):
-            visible = (await client.get("/api/v1/models")).json()["search_providers"]
-
-        assert "anysearch" not in hidden
-        assert visible["anysearch"]["display_name"] == "AnySearch"
+        assert search_providers["anysearch"]["display_name"] == "AnySearch"
 
     @pytest.mark.asyncio
     async def test_model_metadata_includes_access_type(self, client):

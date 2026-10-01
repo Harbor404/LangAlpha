@@ -451,7 +451,8 @@ For the full experience, the wizard will prompt you for optional keys — or add
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
 | `DAYTONA_API_KEY`                    | Persistent cloud sandboxes with cross-session workspace support ([daytona.io](https://www.daytona.io/))                 |
 | `FMP_API_KEY`                        | High-quality fundamentals, macro, SEC filings, options ([free tier available](https://site.financialmodelingprep.com/)) |
-| `SERPER_API_KEY`, `TAVILY_API_KEY`, `EXA_API_KEY`, `PARALLEL_API_KEY`, or `ANYSEARCH_API_KEY` | Web search (any one enables it)                                                     |
+| `SERPER_API_KEY`, `TAVILY_API_KEY`, `EXA_API_KEY`, or `PARALLEL_API_KEY` | Web search through a keyed provider (any one enables it)                                  |
+| `ANYSEARCH_API_KEY`                  | Optional AnySearch credential; anonymous search and fetch work without it                                               |
 | `FIRECRAWL_API_KEY`                  | Upgraded web fetch and site crawling (the built-in crawler needs no key)                                                |
 | `LANGSMITH_API_KEY`                  | LangSmith tracing for LangGraph runs                                                                                    |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`        | OpenTelemetry traces and metrics to any OTLP backend (Jaeger, Grafana Tempo, Datadog, Honeycomb, ...)                   |

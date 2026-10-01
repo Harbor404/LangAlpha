@@ -92,6 +92,7 @@ class WebProviderSpec:
     display_name: str
     env_key: Optional[str]
     capabilities: Mapping[str, CapabilitySpec]
+    auth_required: bool = True
 
     def capability(self, verb: str) -> Optional[CapabilitySpec]:
         return self.capabilities.get(verb)
@@ -105,10 +106,14 @@ def _load_manifest() -> Dict[str, Any]:
         with open(_MANIFEST_PATH) as f:
             return json.load(f)
     except Exception as e:
-        raise RuntimeError(f"Failed to load web provider manifest {_MANIFEST_PATH}: {e}")
+        raise RuntimeError(
+            f"Failed to load web provider manifest {_MANIFEST_PATH}: {e}"
+        )
 
 
-def _parse_capability(provider: str, verb: str, entry: Dict[str, Any]) -> CapabilitySpec:
+def _parse_capability(
+    provider: str, verb: str, entry: Dict[str, Any]
+) -> CapabilitySpec:
     levels = tuple(
         LevelSpec(
             name=lv["name"],
@@ -164,6 +169,7 @@ def get_web_providers() -> Mapping[str, WebProviderSpec]:
             display_name=entry.get("display_name", name),
             env_key=entry.get("env_key"),
             capabilities=MappingProxyType(caps),
+            auth_required=entry.get("auth_required", True),
         )
 
     if not providers:
@@ -175,9 +181,12 @@ def provider_is_configured(spec: WebProviderSpec) -> bool:
     """Whether a provider's required environment is present.
 
     ``env_key=None`` is a zero-key provider (for example the in-house fetch
-    engine); every other provider is disabled until its declared key is set.
+    engine). Providers with ``auth_required=False`` also work anonymously.
+    Every other provider is disabled until its declared key is set.
     """
-    return spec.env_key is None or bool(os.getenv(spec.env_key))
+    return (
+        spec.env_key is None or not spec.auth_required or bool(os.getenv(spec.env_key))
+    )
 
 
 def get_web_provider_spec(name: str) -> Optional[WebProviderSpec]:
@@ -194,7 +203,9 @@ def get_capability(provider: str, verb: str) -> Optional[CapabilitySpec]:
 def providers_with_capability(verb: str) -> Mapping[str, WebProviderSpec]:
     """Providers offering a verb, in manifest order."""
     return {
-        name: spec for name, spec in get_web_providers().items() if spec.capability(verb)
+        name: spec
+        for name, spec in get_web_providers().items()
+        if spec.capability(verb)
     }
 
 
