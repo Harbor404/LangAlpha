@@ -82,12 +82,16 @@ def test_registers_in_the_linear_chain(migration):
         ("https://API.IBKR.COM", "api.ibkr.com", True),
         ("https://agent.robinhood.com.evil.com/x", "agent.robinhood.com", False),
         ("https://api.ibkr.com.evil.com", "api.ibkr.com", False),
-        ("https://agent.robinhood.com/anything", "agent.robinhood.com", True),
+        ("https://[2001:db8::1]:443/mcp", "agent.robinhood.com", False),
+        ("agent.robinhood.com/mcp", "agent.robinhood.com", False),
     ],
 )
 def test_host_match_agrees_with_the_url_resolver(url, vendor_host, expected):
+    resolver_host = urlsplit(url).hostname
     if expected:
-        assert urlsplit(url).hostname == vendor_host
+        assert resolver_host == vendor_host
+    else:
+        assert resolver_host != vendor_host
     assert _is_shipped(url, vendor_host) is expected
 
 
