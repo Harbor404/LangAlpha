@@ -228,6 +228,7 @@ def _search_error(
     message: str,
     query: str,
     *,
+    retryable: bool,
     http_status: int | None = None,
 ) -> tuple[str, dict[str, Any]]:
     artifact: dict[str, Any] = {
@@ -236,6 +237,7 @@ def _search_error(
         "query": query,
         "results": [],
         "error": message,
+        "retryable": retryable,
     }
     if http_status is not None:
         artifact["http_status"] = http_status
@@ -314,24 +316,33 @@ def build_web_search_tool(
         except WebzConfigurationError:
             logger.error("Webz.io search is not configured")
             return _search_error(
-                "Webz.io is not configured (WEBZ_API_KEY missing)", query
+                "Webz.io is not configured (WEBZ_API_KEY missing)",
+                query,
+                retryable=False,
             )
         except httpx.HTTPStatusError as e:
             status = e.response.status_code if e.response is not None else 0
             logger.error("Webz.io search failed (HTTP %s)", status)
-            return _search_error(_search_http_error(status), query, http_status=status)
+            return _search_error(
+                _search_http_error(status),
+                query,
+                retryable=True,
+                http_status=status,
+            )
         except httpx.TimeoutException:
             logger.error("Webz.io search timed out")
-            return _search_error("Webz.io request timed out", query)
+            return _search_error("Webz.io request timed out", query, retryable=True)
         except WebzResponseError:
             logger.error("Webz.io search returned an invalid response")
-            return _search_error("Webz.io returned an invalid response", query)
+            return _search_error(
+                "Webz.io returned an invalid response", query, retryable=True
+            )
         except (ValueError, TypeError) as exc:
             logger.error("Webz.io search input invalid: %s", exc)
-            return _search_error(str(exc), query)
+            return _search_error(str(exc), query, retryable=False)
         except httpx.HTTPError:
             logger.error("Webz.io search request failed")
-            return _search_error("Webz.io request failed", query)
+            return _search_error("Webz.io request failed", query, retryable=True)
 
         return [result.as_dict() for result in results], {
             "type": "web_search",

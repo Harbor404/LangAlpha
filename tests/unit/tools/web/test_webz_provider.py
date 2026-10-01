@@ -200,6 +200,24 @@ async def test_input_validation_error_is_returned_to_model(monkeypatch):
 
     assert isinstance(content, str)
     assert "at most 750 characters" in artifact["error"]
+    assert artifact["retryable"] is False
+
+
+@pytest.mark.asyncio
+async def test_filter_type_error_is_returned_to_model_before_network(monkeypatch):
+    async def unexpected_request(*args, **kwargs):
+        raise AssertionError("invalid filter types must fail before the request")
+
+    monkeypatch.setenv("WEBZ_API_KEY", "test-key")
+    monkeypatch.setattr(webz, "request_json", unexpected_request)
+
+    tool = webz.build_web_search_tool(max_results=5)
+    content, artifact = await tool.coroutine(query="valid query", language=[1])
+
+    assert isinstance(content, str)
+    assert "language" in artifact["error"]
+    assert "only strings" in artifact["error"]
+    assert artifact["retryable"] is False
 
 
 @pytest.mark.asyncio
@@ -215,6 +233,7 @@ async def test_transport_error_is_reported_as_request_failure(monkeypatch):
 
     assert "request failed" in artifact["error"].lower()
     assert "invalid response" not in artifact["error"].lower()
+    assert artifact["retryable"] is True
 
 
 @pytest.mark.asyncio
@@ -229,6 +248,7 @@ async def test_invalid_json_body_is_reported_as_invalid_response(monkeypatch):
     _content, artifact = await tool.coroutine(query="invalid json")
 
     assert "invalid response" in artifact["error"].lower()
+    assert artifact["retryable"] is True
 
 
 @pytest.mark.asyncio
@@ -294,6 +314,7 @@ async def test_missing_api_key_is_disabled_before_network(monkeypatch):
     assert isinstance(content, str)
     assert "not configured" in artifact["error"].lower()
     assert artifact["results"] == []
+    assert artifact["retryable"] is False
 
 
 @pytest.mark.asyncio
@@ -315,6 +336,7 @@ async def test_http_error_is_generic_and_redacted(monkeypatch, caplog):
     assert "do-not-return" not in rendered
     assert "authentication failed" in artifact["error"].lower()
     assert artifact["results"] == []
+    assert artifact["retryable"] is True
 
 
 @pytest.mark.asyncio
@@ -331,6 +353,7 @@ async def test_timeout_is_fail_closed(monkeypatch):
     assert isinstance(content, str)
     assert "timed out" in artifact["error"].lower()
     assert artifact["results"] == []
+    assert artifact["retryable"] is True
 
 
 @pytest.mark.asyncio
@@ -356,3 +379,4 @@ async def test_invalid_response_is_fail_closed(monkeypatch, payload):
     assert isinstance(content, str)
     assert "invalid response" in artifact["error"].lower()
     assert artifact["results"] == []
+    assert artifact["retryable"] is True
