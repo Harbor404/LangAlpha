@@ -443,8 +443,12 @@ class SkillsMiddleware(AgentMiddleware):
 
         if self._mode == "ptc":
             lines.append(
-                "Skills provide specialized capabilities. "
-                "To activate, read `.agents/skills/{name}/SKILL.md`."
+                "Skills provide specialized capabilities. To activate a skill, use "
+                "the Read tool to read `.agents/skills/{name}/SKILL.md` — that "
+                "single Read call IS the complete activation step. The skill's "
+                "tools become available as direct tool calls immediately after. "
+                "Do NOT use Bash, Glob, or Grep to check whether a skill's tools "
+                "are available; if you are unsure, call the tool directly."
             )
         else:
             lines.append("Call `LoadSkill` with the skill name to activate its tools.")
@@ -548,9 +552,10 @@ class SkillsMiddleware(AgentMiddleware):
             else:
                 # PTC mode: point to sandbox path (agent has filesystem)
                 skill_md_section = (
-                    f"\n\n**IMPORTANT**: Read the skill documentation for detailed usage examples:\n"
+                    f"\n\n**Skill documentation:**\n"
                     f"  Path: `{skill.skill_md_path}`\n"
-                    f"  Use the file read tool to read this file before using the skill tools."
+                    "  This file was already read; the skill is active. "
+                    "Use the listed tools as direct tool calls."
                 )
 
         return (
