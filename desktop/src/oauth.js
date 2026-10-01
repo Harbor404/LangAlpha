@@ -549,23 +549,27 @@ function begin(rawUrl, win) {
   // turning the first click into a refusal, without handing the authorize URL to
   // a browser that cannot finish it.
   const flow = armSignin(win, finish)
+  const release = () => {
+    clearTimeout(flow.timer)
+    if (pending === flow) pending = null
+  }
+  const fail = (error) => {
+    if (pending !== flow) return
+    release()
+    flow.finish({ error })
+  }
   const openWhenReady = (port) => {
     if (pending !== flow) return
-    const release = () => {
-      clearTimeout(flow.timer)
-      if (pending === flow) pending = null
-    }
     if (win.isDestroyed()) {
       release()
       return
     }
     if (!port) {
-      release()
       console.error('[auth] no loopback listener; refusing the flow rather than sending it somewhere it cannot finish')
       // Route the failure through finish(), not navigate(): if the user moved
       // while the listener was starting, finish() preserves that page.
-      flow.finish({ error: 'Sign-in with a provider could not start: this machine would not give the app a local port '
-        + 'to listen on. Signing in with your email and password still works.' })
+      fail('Sign-in with a provider could not start: this machine would not give the app a local port '
+        + 'to listen on. Signing in with your email and password still works.')
       return
     }
 
@@ -577,9 +581,7 @@ function begin(rawUrl, win) {
       // in-app navigation was already prevented on the strength of this flow
       // starting, so leaving it pending is ten minutes of a window that silently
       // refused to go anywhere, ending in a timeout that blames the user's wait.
-      if (pending !== flow) return
-      release()
-      flow.finish({ error: 'could not open your browser' })
+      fail('could not open your browser')
     }
     try {
       shell.openExternal(authorize.toString()).catch(browserFailed)
@@ -594,7 +596,12 @@ function begin(rawUrl, win) {
     openWhenReady(callbackPort)
   } else {
     console.log('[auth] no loopback listener; opening one before starting the flow')
-    ensureCallbackServer().then(openWhenReady, () => openWhenReady(null))
+    ensureCallbackServer()
+      .then(openWhenReady, () => openWhenReady(null))
+      .catch((err) => {
+        console.error(`[auth] callback listener handoff failed: ${err.message}`)
+        fail('could not start the sign-in listener')
+      })
   }
   return true
 }
