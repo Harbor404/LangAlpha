@@ -14,6 +14,7 @@ from typing import Any
 import httpx
 from langchain_core.tools import tool
 
+from src.tools.utils.validation_utils import validate_date_format
 from src.tools.web.providers._shared import (
     SNIPPET_MAX,
     lazy,
@@ -28,6 +29,7 @@ logger = logging.getLogger(__name__)
 _BASE_URL = "https://api.webz.io"
 _SEARCH_PATH = "/api/news/context"
 _TIMEOUT = 30.0
+_MODEL_METADATA_FIELDS = ("language", "country", "sentiment", "category")
 
 
 class WebzConfigurationError(ValueError):
@@ -76,6 +78,10 @@ def _as_filter_list(value: Any, field: str) -> list[str] | None:
     return cleaned or None
 
 
+def _model_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    return {key: metadata[key] for key in _MODEL_METADATA_FIELDS if key in metadata}
+
+
 def _normalize_result(raw: Any) -> SearchResult:
     item = _require_mapping(raw)
     article = _require_mapping(item.get("article"))
@@ -105,7 +111,7 @@ def _normalize_result(raw: Any) -> SearchResult:
         score=score,
         result_type="news",
         source=source,
-        metadata=metadata,
+        metadata=_model_metadata(metadata),
     )
 
 
@@ -117,7 +123,13 @@ def _normalize_search_response(
     if not isinstance(raw_results, list):
         raise WebzResponseError()
 
-    results = [_normalize_result(item) for item in raw_results]
+    results: list[SearchResult] = []
+    for index, item in enumerate(raw_results):
+        try:
+            results.append(_normalize_result(item))
+        except WebzResponseError:
+            logger.warning("Skipping malformed Webz.io result %d", index)
+
     total_results = envelope.get("total_results", len(results))
     if (
         not isinstance(total_results, int)
@@ -166,6 +178,8 @@ class WebzAPI:
         if len(query) > 750:
             raise ValueError("query must be at most 750 characters")
 
+        validate_date_format(published_from)
+        validate_date_format(published_to)
         canonical_range = normalize_time_range(time_range, provider="Webz.io")
         effective_from = published_from or time_range_to_start_date(
             canonical_range, fmt="%Y-%m-%d", provider="Webz.io"
@@ -194,14 +208,17 @@ class WebzAPI:
             payload["filters"] = filters
 
         start_time = time.time()
-        data = await request_json(
-            "POST",
-            f"{_BASE_URL}{_SEARCH_PATH}",
-            provider="Webz.io",
-            headers=self.headers,
-            json_body=payload,
-            timeout=_TIMEOUT,
-        )
+        try:
+            data = await request_json(
+                "POST",
+                f"{_BASE_URL}{_SEARCH_PATH}",
+                provider="Webz.io",
+                headers=self.headers,
+                json_body=payload,
+                timeout=_TIMEOUT,
+            )
+        except ValueError as exc:
+            raise WebzResponseError() from exc
         results, metadata = _normalize_search_response(data)
         metadata["response_time"] = round(time.time() - start_time, 2)
         return results, metadata
@@ -306,9 +323,15 @@ def build_web_search_tool(
         except httpx.TimeoutException:
             logger.error("Webz.io search timed out")
             return _search_error("Webz.io request timed out", query)
-        except (httpx.HTTPError, WebzResponseError, ValueError, TypeError):
-            logger.error("Webz.io search returned an invalid or failed response")
+        except WebzResponseError:
+            logger.error("Webz.io search returned an invalid response")
             return _search_error("Webz.io returned an invalid response", query)
+        except (ValueError, TypeError) as exc:
+            logger.error("Webz.io search input invalid: %s", exc)
+            return _search_error(str(exc), query)
+        except httpx.HTTPError:
+            logger.error("Webz.io search request failed")
+            return _search_error("Webz.io request failed", query)
 
         return [result.as_dict() for result in results], {
             "type": "web_search",

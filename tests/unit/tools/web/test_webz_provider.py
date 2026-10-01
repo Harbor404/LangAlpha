@@ -6,6 +6,7 @@ returns ``results[].{score, article, chunk, metadata}``. Provider failures are
 normalized here and must never expose raw response bodies or credentials.
 """
 
+import json
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
@@ -129,22 +130,105 @@ async def test_search_maps_native_request_and_normalizes_results(monkeypatch):
             "category": ["business"],
         },
     }
-    assert results == [
-        SearchResult(
-            title="Central bank holds rates",
-            url=ARTICLE_URL,
-            content="The central bank kept its policy rate unchanged.",
-            excerpts=("The central bank kept its policy rate unchanged.",),
-            published_date="2026-08-27T07:07:00.000+03:00",
-            score=7.1,
-            result_type="news",
-            source="news.example",
-            metadata=_search_payload()["results"][0]["metadata"],
-        )
-    ]
+    assert len(results) == 1
+    result = results[0]
+    assert result.title == "Central bank holds rates"
+    assert result.url == ARTICLE_URL
+    assert result.content == "The central bank kept its policy rate unchanged."
+    assert result.excerpts == ("The central bank kept its policy rate unchanged.",)
+    assert result.published_date == "2026-08-27T07:07:00.000+03:00"
+    assert result.score == 7.1
+    assert result.result_type == "news"
+    assert result.source == "news.example"
+    assert result.metadata == {
+        "language": "english",
+        "country": "US",
+        "category": ["Economy, Business and Finance"],
+        "sentiment": "positive",
+    }
     assert metadata["total_results"] == 1
     assert metadata["requests_left"] == 99
     assert metadata["credits_used"] == 1
+
+
+@pytest.mark.asyncio
+async def test_malformed_result_is_skipped(monkeypatch, caplog):
+    payload = _search_payload()
+    payload["total_results"] = 2
+    payload["results"].append(
+        {
+            "score": "not-a-number",
+            "article": {"url": "https://news.example/broken"},
+            "chunk": {"text": "broken result"},
+            "metadata": {},
+        }
+    )
+
+    async def fake_request_json(*args, **kwargs):
+        return payload
+
+    monkeypatch.setattr(webz, "request_json", fake_request_json)
+
+    with caplog.at_level("WARNING"):
+        results, _metadata = await webz.WebzAPI(api_key="test-key").search(
+            "valid result"
+        )
+
+    assert [result.url for result in results] == [ARTICLE_URL]
+    assert "skipping malformed webz.io result 1" in caplog.text.lower()
+
+
+@pytest.mark.asyncio
+async def test_invalid_published_date_is_rejected_before_network(monkeypatch):
+    async def unexpected_request(*args, **kwargs):
+        raise AssertionError("date validation must happen before the request")
+
+    monkeypatch.setattr(webz, "request_json", unexpected_request)
+
+    with pytest.raises(ValueError, match="YYYY-MM-DD"):
+        await webz.WebzAPI(api_key="test-key").search(
+            "invalid date", published_to="09/01/2026"
+        )
+
+
+@pytest.mark.asyncio
+async def test_input_validation_error_is_returned_to_model(monkeypatch):
+    monkeypatch.setenv("WEBZ_API_KEY", "test-key")
+
+    tool = webz.build_web_search_tool(max_results=5)
+    content, artifact = await tool.coroutine(query="x" * 751)
+
+    assert isinstance(content, str)
+    assert "at most 750 characters" in artifact["error"]
+
+
+@pytest.mark.asyncio
+async def test_transport_error_is_reported_as_request_failure(monkeypatch):
+    async def fail_request(*args, **kwargs):
+        raise httpx.ConnectError("connection failed")
+
+    monkeypatch.setenv("WEBZ_API_KEY", "test-key")
+    monkeypatch.setattr(webz, "request_json", fail_request)
+
+    tool = webz.build_web_search_tool(max_results=5)
+    _content, artifact = await tool.coroutine(query="transport failure")
+
+    assert "request failed" in artifact["error"].lower()
+    assert "invalid response" not in artifact["error"].lower()
+
+
+@pytest.mark.asyncio
+async def test_invalid_json_body_is_reported_as_invalid_response(monkeypatch):
+    async def invalid_json_request(*args, **kwargs):
+        raise json.JSONDecodeError("invalid json", "", 0)
+
+    monkeypatch.setenv("WEBZ_API_KEY", "test-key")
+    monkeypatch.setattr(webz, "request_json", invalid_json_request)
+
+    tool = webz.build_web_search_tool(max_results=5)
+    _content, artifact = await tool.coroutine(query="invalid json")
+
+    assert "invalid response" in artifact["error"].lower()
 
 
 @pytest.mark.asyncio
@@ -256,8 +340,7 @@ async def test_timeout_is_fail_closed(monkeypatch):
         [],
         {},
         {"results": "not-a-list"},
-        {"results": [{"article": {}, "chunk": {}, "metadata": {}}]},
-        {"results": [{"article": {"url": ARTICLE_URL}, "chunk": {"text": "x"}}]},
+        {"results": [], "total_results": -1},
     ],
 )
 async def test_invalid_response_is_fail_closed(monkeypatch, payload):
