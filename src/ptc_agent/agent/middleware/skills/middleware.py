@@ -554,8 +554,9 @@ class SkillsMiddleware(AgentMiddleware):
                 skill_md_section = (
                     f"\n\n**Skill documentation:**\n"
                     f"  Path: `{skill.skill_md_path}`\n"
-                    "  This file was already read; the skill is active. "
-                    "Use the listed tools as direct tool calls."
+                    "  The skill is active. Use the listed tools as direct tool calls. "
+                    "Read the documentation only if you need detailed usage examples; "
+                    "do not use that read to verify tool availability."
                 )
 
         return (
