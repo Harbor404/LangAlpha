@@ -571,7 +571,7 @@ function begin(rawUrl, win) {
 
     authorize.searchParams.set('redirect_to', `http://127.0.0.1:${port}/callback`)
     console.log('[auth] handing the authorize URL to the system browser')
-    shell.openExternal(authorize.toString()).catch((err) => {
+    const browserFailed = (err) => {
       console.error(`[auth] the system browser refused the authorize URL: ${err.message}`)
       // Nothing is ever coming back: no browser opened, so no callback will. The
       // in-app navigation was already prevented on the strength of this flow
@@ -580,7 +580,14 @@ function begin(rawUrl, win) {
       if (pending !== flow) return
       release()
       flow.finish({ error: 'could not open your browser' })
-    })
+    }
+    try {
+      shell.openExternal(authorize.toString()).catch(browserFailed)
+    } catch (err) {
+      // Electron normally rejects, but a synchronous throw must not leave the
+      // flow armed until its ten-minute timeout.
+      browserFailed(err)
+    }
   }
 
   if (callbackPort) {
