@@ -7,6 +7,8 @@ from src.tools.decorators import create_logged_tool
 from src.tools.web.manifest import (
     CAPABILITY_SEARCH,
     get_capability,
+    get_web_provider_spec,
+    provider_is_configured,
     providers_with_capability,
 )
 
@@ -26,7 +28,8 @@ def _lazy_builder(provider: str):
 # Provider name -> tool builder. Adding a provider = one entry here, one
 # provider module with build_web_search_tool, one manifest entry.
 _PROVIDER_BUILDERS = {
-    name: _lazy_builder(name) for name in ("tavily", "serper", "bocha", "exa", "parallel")
+    name: _lazy_builder(name)
+    for name in ("tavily", "serper", "bocha", "exa", "parallel", "anysearch")
 }
 
 
@@ -56,12 +59,18 @@ def get_web_search_tool(
     # User overrides degrade gracefully — including a manifest entry with no
     # builder yet (e.g. a deployment-edited manifest ahead of the module).
     # A bad deployment default still fails fast below.
+    requested_spec = get_web_provider_spec(engine)
     if engine != SELECTED_SEARCH_ENGINE and (
         get_capability(engine, CAPABILITY_SEARCH) is None
         or engine not in _PROVIDER_BUILDERS
+        or requested_spec is None
+        or not provider_is_configured(requested_spec)
     ):
         logger.warning(
-            "Unknown search provider %r; falling back to default %r", engine, SELECTED_SEARCH_ENGINE
+            "Search provider %r is unsupported or unconfigured; "
+            "falling back to default %r",
+            engine,
+            SELECTED_SEARCH_ENGINE,
         )
         engine = SELECTED_SEARCH_ENGINE
 

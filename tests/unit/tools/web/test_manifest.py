@@ -21,19 +21,21 @@ from src.tools.web.manifest import (
 class TestManifestLoading:
     def test_loads_known_providers(self):
         providers = get_web_providers()
-        assert {"tavily", "serper", "bocha", "exa", "parallel", "firecrawl", "inhouse"} <= set(
+        assert {"tavily", "serper", "bocha", "exa", "parallel", "anysearch", "firecrawl", "inhouse"} <= set(
             providers
         )
 
     def test_search_capable_providers(self):
-        assert {"tavily", "serper", "bocha", "exa", "parallel"} == set(
+        assert {"tavily", "serper", "bocha", "exa", "parallel", "anysearch"} == set(
             providers_with_capability(CAPABILITY_SEARCH)
         )
 
     def test_fetch_capable_providers_include_inhouse(self):
         fetchers = providers_with_capability(CAPABILITY_FETCH)
         assert "inhouse" in fetchers
+        assert "anysearch" in fetchers
         assert fetchers["inhouse"].env_key is None
+        assert fetchers["anysearch"].env_key == "ANYSEARCH_API_KEY"
 
     def test_firecrawl_offers_crawl(self):
         cap = get_web_providers()["firecrawl"].capability("crawl")

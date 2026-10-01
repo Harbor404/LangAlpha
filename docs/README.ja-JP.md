@@ -155,7 +155,7 @@ PTC は多段階のデータ処理、金融モデリング、チャート作成�
 - **Company overview**：リアルタイム quote、price performance、主要財務指標、analyst consensus、revenue breakdown
 - **SEC filings**（10-K、10-Q、8-K）：earnings call transcripts と引用しやすい markdown 形式
 - **Market indices** と **sector performance**：市場全体の文脈
-- **Web search**（Tavily、Serper、Bocha、Exa、Parallel）：manifest-driven provider selection、深さの段階選択（fast lookup から deep research）、image search、AI research mode、ユーザーごとの選択に対応。さらに、ゼロキーの組み込みクローラーに任意の provider 委譲（Firecrawl など）を加え、per-provider の circuit breaker で保護する **web fetch**、そしてオプトインの **site crawling**（WebCrawl/WebMap）
+- **Web search**（Tavily、Serper、Bocha、Exa、Parallel、AnySearch）：manifest-driven provider selection、深さの段階選択（fast lookup から deep research）、image search、AI research mode、ユーザーごとの選択に対応。さらに、ゼロキーの組み込みクローラーに任意の provider 委譲（Firecrawl など）を加え、per-provider の circuit breaker で保護する **web fetch**、そしてオプトインの **site crawling**（WebCrawl/WebMap）
 
 **MCP servers** は、PTC code execution で扱う raw data 向けです。
 
@@ -437,7 +437,7 @@ make up       # PostgreSQL、Redis、backend、frontend を起動
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
 | `DAYTONA_API_KEY`                    | session をまたいで workspace を維持できる persistent cloud sandboxes（[daytona.io](https://www.daytona.io/)）          |
 | `FMP_API_KEY`                        | 高品質な fundamentals、macro、SEC filings、options（[free tier available](https://site.financialmodelingprep.com/)）   |
-| `SERPER_API_KEY`、`TAVILY_API_KEY`、`EXA_API_KEY` または `PARALLEL_API_KEY` | Web search（いずれか一つで有効化）                                                |
+| `SERPER_API_KEY`、`TAVILY_API_KEY`、`EXA_API_KEY`、`PARALLEL_API_KEY` または `ANYSEARCH_API_KEY` | Web search（いずれか一つで有効化）                                                |
 | `FIRECRAWL_API_KEY`                  | Web fetch と site crawling の強化（組み込みクローラーはキー不要）                                                     |
 | `LANGSMITH_API_KEY`                  | LangGraph runs の LangSmith tracing                                                                                    |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`        | OpenTelemetry traces と metrics を任意の OTLP backend（Jaeger、Grafana Tempo、Datadog、Honeycomb など）へ送信          |

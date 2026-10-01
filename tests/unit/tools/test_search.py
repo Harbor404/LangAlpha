@@ -113,15 +113,15 @@ class TestGetWebSearchToolRouting:
 class TestGetWebSearchToolProviderOverride:
     """The ``provider`` arg overrides ``SELECTED_SEARCH_ENGINE`` per request.
 
-    A valid engine selects that provider's builder; an unknown string logs a
-    warning and falls back to the deployment default; ``None`` is a no-op so
-    the default engine is used. Provider modules read API keys lazily at call
-    time, so building the tools needs no API keys (the modules are mocked here
-    regardless, to assert which builder ran).
+    A configured engine selects that provider's builder; an unknown or
+    unconfigured override logs a warning and falls back to the deployment
+    default; ``None`` is a no-op so the default engine is used. Provider
+    modules are mocked here to assert which builder ran.
     """
 
-    def test_provider_serper_selects_serper_builder(self):
+    def test_provider_serper_selects_serper_builder(self, monkeypatch):
         """provider='serper' (default engine is tavily) routes to serper."""
+        monkeypatch.setenv("SERPER_API_KEY", "test-key")
         mock_build, mock_module = _make_provider_module()
         mock_tool = MagicMock()
         with (
@@ -141,8 +141,9 @@ class TestGetWebSearchToolProviderOverride:
         assert mock_create.call_args.kwargs["name"] == "WebSearch"
         assert result is mock_tool
 
-    def test_provider_tavily_selects_tavily_builder(self):
+    def test_provider_tavily_selects_tavily_builder(self, monkeypatch):
         """provider='tavily' (default engine is serper) routes to tavily."""
+        monkeypatch.setenv("TAVILY_API_KEY", "test-key")
         mock_build, mock_module = _make_provider_module()
         mock_tool = MagicMock()
         with (
@@ -161,8 +162,9 @@ class TestGetWebSearchToolProviderOverride:
         assert mock_create.call_args.kwargs["tracking_name"] == "TavilySearchTool:standard"
         assert result is mock_tool
 
-    def test_provider_bocha_selects_bocha_builder(self):
+    def test_provider_bocha_selects_bocha_builder(self, monkeypatch):
         """provider='bocha' (default engine is tavily) routes to bocha."""
+        monkeypatch.setenv("BOCHA_API_KEY", "test-key")
         mock_build, mock_module = _make_provider_module()
         mock_tool = MagicMock()
         with (
@@ -178,6 +180,38 @@ class TestGetWebSearchToolProviderOverride:
             max_results=3, default_time_range=None, verbose=True
         )
         assert mock_create.call_args.kwargs["tracking_name"] == "BochaSearchTool"
+        assert result is mock_tool
+
+    def test_unconfigured_provider_override_falls_back(self, monkeypatch):
+        """A provider whose required key is absent is disabled for overrides."""
+        monkeypatch.setenv("TAVILY_API_KEY", "test-key")
+        monkeypatch.delenv("ANYSEARCH_API_KEY", raising=False)
+        tavily_build, tavily_module = _make_provider_module()
+        anysearch_build, anysearch_module = _make_provider_module()
+        mock_tool = MagicMock()
+
+        with (
+            patch("src.tools.web.search.SELECTED_SEARCH_ENGINE", "tavily"),
+            patch.dict(
+                "sys.modules",
+                {
+                    "src.tools.web.providers.tavily": tavily_module,
+                    "src.tools.web.providers.anysearch": anysearch_module,
+                },
+            ),
+            patch("src.tools.web.search.create_logged_tool", return_value=mock_tool),
+        ):
+            from src.tools.web.search import get_web_search_tool
+
+            result = get_web_search_tool(max_search_results=5, provider="anysearch")
+
+        tavily_build.assert_called_once_with(
+            max_results=5,
+            default_time_range=None,
+            verbose=True,
+            search_depth="basic",
+        )
+        anysearch_build.assert_not_called()
         assert result is mock_tool
 
     def test_invalid_provider_falls_back_to_default_and_warns(self, caplog):

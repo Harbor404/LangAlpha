@@ -159,7 +159,7 @@ PTC 擅长多步数据处理、金融建模、画图这类复杂任务，但每�
 - **公司概览**：实时报价、价格表现、关键财务指标、分析师一致预期和营收构成
 - **SEC 文件**（10-K、10-Q、8-K）：附带财报电话会记录，并格式化成便于引用的 markdown
 - **市场指数**与**板块表现**：提供大盘层面的背景
-- **网页搜索**（Tavily、Serper、博查、Exa、Parallel）——由 manifest 驱动的 provider 选择，深度分层（从快速查询到深度研究），还有图片搜索和 AI research 模式，每个用户可各自选择——以及**网页抓取**：内置爬虫零密钥即用，可选接入第三方 provider（Firecrawl 等），并由每个 provider 独立的熔断器守护，另有可选开启的**站点爬取**（WebCrawl/WebMap）
+- **网页搜索**（Tavily、Serper、博查、Exa、Parallel、AnySearch）——由 manifest 驱动的 provider 选择，深度分层（从快速查询到深度研究），还有图片搜索和 AI research 模式，每个用户可各自选择——以及**网页抓取**：内置爬虫零密钥即用，可选接入第三方 provider（Firecrawl 等），并由每个 provider 独立的熔断器守护，另有可选开启的**站点爬取**（WebCrawl/WebMap）
 
 **MCP server**，提供经由 PTC 代码执行消费的原始数据：
 
@@ -452,7 +452,7 @@ make up       # 启动 PostgreSQL、Redis、后端和前端
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
 | `DAYTONA_API_KEY`                    | 持久的云 sandbox，支持跨 session 的 workspace（[daytona.io](https://www.daytona.io/)）                                   |
 | `FMP_API_KEY`                        | 高质量的基本面、宏观、SEC 文件、期权（[有免费额度](https://site.financialmodelingprep.com/)）                            |
-| `SERPER_API_KEY`、`TAVILY_API_KEY`、`EXA_API_KEY` 或 `PARALLEL_API_KEY` | 网页搜索（任一即可启用）                                                            |
+| `SERPER_API_KEY`、`TAVILY_API_KEY`、`EXA_API_KEY`、`PARALLEL_API_KEY` 或 `ANYSEARCH_API_KEY` | 网页搜索（任一即可启用）                                                            |
 | `FIRECRAWL_API_KEY`                  | 升级网页抓取与站点爬取（内置爬虫无需密钥）                                                                              |
 | `LANGSMITH_API_KEY`                  | 为 LangGraph 运行提供 LangSmith 追踪                                                                                    |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`        | 把 OpenTelemetry 的 trace 和 metric 发到任意 OTLP 后端（Jaeger、Grafana Tempo、Datadog、Honeycomb 等）                  |

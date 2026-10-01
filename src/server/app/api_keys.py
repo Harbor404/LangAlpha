@@ -818,6 +818,7 @@ async def list_models():
     from src.server.app import setup
     from src.tools.web.manifest import (
         CAPABILITY_SEARCH,
+        provider_is_configured,
         providers_with_capability,
         resolve_min_tier,
     )
@@ -844,7 +845,8 @@ async def list_models():
             ],
         }
         for name, spec in providers_with_capability(CAPABILITY_SEARCH).items()
-        if (cap := spec.capability(CAPABILITY_SEARCH)) is not None
+        if provider_is_configured(spec)
+        and (cap := spec.capability(CAPABILITY_SEARCH)) is not None
     }
     return {
         "models": {

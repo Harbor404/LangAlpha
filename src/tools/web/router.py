@@ -28,7 +28,6 @@ level-qualified tracking name (billing flows through the manifest).
 
 import asyncio
 import logging
-import os
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -44,6 +43,7 @@ from src.tools.web.manifest import (
     LevelSpec,
     WebProviderSpec,
     get_web_provider_spec,
+    provider_is_configured,
 )
 from src.tools.web.types import (
     FetchAttempt,
@@ -115,6 +115,7 @@ _ADAPTER_BUILDERS = {
     for provider, class_name in {
         "exa": "ExaFetchAdapter",
         "parallel": "ParallelFetchAdapter",
+        "anysearch": "AnySearchFetchAdapter",
         "firecrawl": "FirecrawlFetchAdapter",
         "tavily": "TavilyFetchAdapter",
         "inhouse": "InhouseFetchAdapter",
@@ -130,7 +131,7 @@ class _ChainEntry:
     breaker: CircuitBreaker
 
     def available(self) -> bool:
-        return self.provider.env_key is None or bool(os.getenv(self.provider.env_key))
+        return provider_is_configured(self.provider)
 
 
 def build_chain(providers: List[str]) -> List["_ChainEntry"]:

@@ -12,6 +12,7 @@ validation can import it cheaply.
 
 import json
 import logging
+import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -168,6 +169,15 @@ def get_web_providers() -> Mapping[str, WebProviderSpec]:
     if not providers:
         raise RuntimeError(f"No web providers defined in {_MANIFEST_PATH}")
     return MappingProxyType(providers)
+
+
+def provider_is_configured(spec: WebProviderSpec) -> bool:
+    """Whether a provider's required environment is present.
+
+    ``env_key=None`` is a zero-key provider (for example the in-house fetch
+    engine); every other provider is disabled until its declared key is set.
+    """
+    return spec.env_key is None or bool(os.getenv(spec.env_key))
 
 
 def get_web_provider_spec(name: str) -> Optional[WebProviderSpec]:

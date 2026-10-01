@@ -189,6 +189,36 @@ class TestListModelsResponse:
         assert resp.status_code == 200
 
     @pytest.mark.asyncio
+    async def test_search_catalog_tracks_anysearch_configuration(self, client, monkeypatch):
+        mock_models = {}
+        mock_mc = MagicMock()
+        mock_mc.get_display_name.side_effect = lambda p: p
+        mock_mc.get_model_metadata.return_value = {}
+
+        mock_llm_cls = MagicMock()
+        mock_llm_cls.get_model_config.return_value = mock_mc
+        agent_cfg = _mock_agent_config(name="test")
+
+        monkeypatch.delenv("ANYSEARCH_API_KEY", raising=False)
+        with (
+            patch("src.llms.llm.get_configured_llm_models", return_value=mock_models),
+            patch("src.llms.llm.LLM", mock_llm_cls),
+            patch("src.server.app.setup.agent_config", agent_cfg),
+        ):
+            hidden = (await client.get("/api/v1/models")).json()["search_providers"]
+
+        monkeypatch.setenv("ANYSEARCH_API_KEY", "test-key")
+        with (
+            patch("src.llms.llm.get_configured_llm_models", return_value=mock_models),
+            patch("src.llms.llm.LLM", mock_llm_cls),
+            patch("src.server.app.setup.agent_config", agent_cfg),
+        ):
+            visible = (await client.get("/api/v1/models")).json()["search_providers"]
+
+        assert "anysearch" not in hidden
+        assert visible["anysearch"]["display_name"] == "AnySearch"
+
+    @pytest.mark.asyncio
     async def test_model_metadata_includes_access_type(self, client):
         """model_metadata values should include access_type alongside sdk and provider."""
         mock_models = {
