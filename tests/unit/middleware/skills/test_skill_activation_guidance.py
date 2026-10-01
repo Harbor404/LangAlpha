@@ -29,7 +29,7 @@ def test_flash_manifest_keeps_load_skill_guidance() -> None:
 
 
 @pytest.mark.asyncio
-async def test_ptc_skill_result_marks_the_read_as_already_complete() -> None:
+async def test_ptc_skill_result_guides_direct_tool_use() -> None:
     skill = SkillDefinition(
         name="demo",
         description="Demo skill",
@@ -41,6 +41,5 @@ async def test_ptc_skill_result_marks_the_read_as_already_complete() -> None:
     result = await middleware._build_skill_result(skill)
 
     assert "skill is active" in result
-    assert "direct tool calls" in result
-    assert "do not use that read to verify tool availability" in result
+    assert "Use the listed tools as direct tool calls" in result
     assert "before using the skill tools" not in result
