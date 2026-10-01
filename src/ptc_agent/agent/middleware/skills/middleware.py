@@ -499,6 +499,27 @@ class SkillsMiddleware(AgentMiddleware):
 
         return "\n".join(lines)
 
+    @staticmethod
+    def _announce_activation(result: ToolMessage, skill_name: str) -> ToolMessage:
+        """Append the activation status to the Read result that activated it.
+
+        The manifest already tells the agent what a Read means, but the Read
+        result is what the agent sees at the moment it activates a skill. Saying
+        so there keeps the activation self-describing, so the agent does not
+        reach for Bash/Glob/Grep to confirm the tools exist.
+
+        The file content is preserved; only a trailing note is added.
+        """
+        if not isinstance(result.content, str):
+            return result
+
+        note = (
+            f"\n\n[Skill activated: {skill_name}] "
+            "This skill is active; its listed tools are usable now as direct tool calls. "
+            "Do not use Bash, Glob, or Grep to verify tool availability."
+        )
+        return result.model_copy(update={"content": result.content + note})
+
     def _match_skill_from_read(self, tool_name: str, tool_args: dict) -> str | None:
         """Check if a Read tool call targets a registered skill's SKILL.md.
 
@@ -614,7 +635,11 @@ class SkillsMiddleware(AgentMiddleware):
             if self._mode == "ptc" and self._skill_md_to_name:
                 tool_args = tool_call.get("args", {})
                 matched_skill = self._match_skill_from_read(tool_name, tool_args)
-                if matched_skill and isinstance(result, ToolMessage):
+                if (
+                    matched_skill
+                    and isinstance(result, ToolMessage)
+                    and result.status != "error"
+                ):
                     logger.info(
                         "Auto-loading skill from SKILL.md read",
                         skill_name=matched_skill,
@@ -622,7 +647,7 @@ class SkillsMiddleware(AgentMiddleware):
                     return Command(
                         update={
                             LOADED_SKILLS_KEY: [matched_skill],
-                            "messages": [result],  # preserve original Read result
+                            "messages": [self._announce_activation(result, matched_skill)],
                         },
                     )
 
