@@ -111,7 +111,8 @@ class SearchResult:
     (``content_and_artifact``); ``as_dict()`` serializes the model-facing
     content dict only. Frontend cards are assembled by the tool builders —
     that is where ``favicon`` is consumed, so it is deliberately absent
-    from ``as_dict()``.
+    from ``as_dict()``. ``source`` and ``metadata`` preserve provenance that
+    providers may expose alongside the normalized result.
     """
 
     title: str
@@ -123,6 +124,8 @@ class SearchResult:
     favicon: Optional[str] = None
     score: Optional[float] = None
     result_type: str = "page"
+    source: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
 
     def as_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -137,6 +140,10 @@ class SearchResult:
             d["author"] = self.author
         if self.score is not None:
             d["score"] = self.score
+        if self.source:
+            d["source"] = self.source
+        if self.metadata:
+            d["metadata"] = self.metadata
         return d
 
 
