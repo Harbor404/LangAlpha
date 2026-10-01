@@ -136,6 +136,12 @@ class FXMacroDataSource:
         """Fetch and normalize one currency/indicator release series."""
         normalized_currency = self._require_currency(currency)
         normalized_indicator = _indicator(indicator)
+        if not 1 <= limit <= 100:
+            raise FXMacroDataInvalidArgument(
+                "FXMacroData limit must be between 1 and 100"
+            )
+        if offset < 0:
+            raise FXMacroDataInvalidArgument("FXMacroData offset must be non-negative")
         payload = await self.client.get_announcements(
             normalized_currency,
             normalized_indicator,

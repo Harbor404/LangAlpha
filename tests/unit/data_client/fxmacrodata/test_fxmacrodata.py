@@ -9,6 +9,7 @@ import pytest
 
 from src.data_client.fxmacrodata import (
     FXMacroDataClient,
+    FXMacroDataInvalidArgument,
     FXMacroDataRequestError,
     FXMacroDataResponseError,
     FXMacroDataSource,
@@ -51,6 +52,26 @@ async def test_missing_key_rejects_non_usd_without_http_request():
 
     with pytest.raises(FXMacroDataUnavailable, match="non-USD"):
         await source.get_macro_announcements("AUD", "policy_rate")
+
+    assert called is False
+
+
+@pytest.mark.parametrize("kwargs", [{"limit": 0}, {"limit": 101}, {"offset": -1}])
+@pytest.mark.asyncio
+async def test_announcements_reject_out_of_range_paging(kwargs: dict[str, int]):
+    called = False
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal called
+        called = True
+        return httpx.Response(200, json={"data": []}, request=request)
+
+    source = FXMacroDataSource(
+        client=FXMacroDataClient(api_key="", transport=httpx.MockTransport(handler))
+    )
+
+    with pytest.raises(FXMacroDataInvalidArgument):
+        await source.get_macro_announcements("USD", "inflation", **kwargs)
 
     assert called is False
 
