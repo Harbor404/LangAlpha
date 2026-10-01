@@ -510,33 +510,6 @@ function begin(rawUrl, win) {
     return false
   }
 
-  // Ours, and unserviceable. Declining here would let the navigation proceed as
-  // 'external', which opens the authorize URL in the system browser: the flow
-  // then completes into a browser profile holding none of the PKCE verifier this
-  // renderer just minted, so it cannot be redeemed and the window is never told
-  // why. Claim it and say so.
-  //
-  // Reads the port rather than awaiting one: `decide` in main answers Electron's
-  // navigation handlers, which take a verdict in the same tick and no promise, so
-  // this flow is refused either way. Start the listener anyway and let it land
-  // after the refusal -- otherwise the boot failure stays latched for the life of
-  // the process exactly as it used to, and a user who only ever signs in never
-  // reaches the one path (`beginMcp`) that retries. What the message owes them is
-  // the way in that needs no listener at all; the click after it may well work.
-  if (!callbackPort) {
-    console.error('[auth] no loopback listener; refusing the flow rather than sending it somewhere it cannot finish')
-    ensureCallbackServer().catch(() => {})
-    // Claimed either way: a window that closed under us still must not have its
-    // authorize URL handed to a browser that cannot finish it.
-    if (win.isDestroyed()) return true
-    navigate(win, withParam(originalRedirect, 'error',
-      'Sign-in with a provider could not start: this machine would not give the app a local port '
-      + 'to listen on. Signing in with your email and password still works.'))
-    return true
-  }
-
-  authorize.searchParams.set('redirect_to', `http://127.0.0.1:${callbackPort}/callback`)
-
   // Where the window was when the flow started, so the two paths that end a flow
   // without the user asking can tell "still waiting to sign in" from "gave up
   // and went back to work". Turns here run for minutes.
@@ -569,20 +542,51 @@ function begin(rawUrl, win) {
     navigate(win, target)
   }
 
+  // `decide` answers Electron's navigation handlers in the same tick and cannot
+  // await a port, so claim the navigation now. The sign-in slot is armed before
+  // the listener starts, then the flow continues as soon as
+  // `ensureCallbackServer` reports one. This keeps a transient startup bind from
+  // turning the first click into a refusal, without handing the authorize URL to
+  // a browser that cannot finish it.
   const flow = armSignin(win, finish)
-
-  console.log('[auth] handing the authorize URL to the system browser')
-  shell.openExternal(authorize.toString()).catch((err) => {
-    console.error(`[auth] the system browser refused the authorize URL: ${err.message}`)
-    // Nothing is ever coming back: no browser opened, so no callback will. The
-    // in-app navigation was already prevented on the strength of this flow
-    // starting, so leaving it pending is ten minutes of a window that silently
-    // refused to go anywhere, ending in a timeout that blames the user's wait.
+  const openWhenReady = (port) => {
     if (pending !== flow) return
-    clearTimeout(flow.timer)
-    pending = null
-    flow.finish({ error: 'could not open your browser' })
-  })
+    if (win.isDestroyed()) {
+      clearTimeout(flow.timer)
+      pending = null
+      return
+    }
+    if (!port) {
+      clearTimeout(flow.timer)
+      pending = null
+      console.error('[auth] no loopback listener; refusing the flow rather than sending it somewhere it cannot finish')
+      navigate(win, withParam(originalRedirect, 'error',
+        'Sign-in with a provider could not start: this machine would not give the app a local port '
+        + 'to listen on. Signing in with your email and password still works.'))
+      return
+    }
+
+    authorize.searchParams.set('redirect_to', `http://127.0.0.1:${port}/callback`)
+    console.log('[auth] handing the authorize URL to the system browser')
+    shell.openExternal(authorize.toString()).catch((err) => {
+      console.error(`[auth] the system browser refused the authorize URL: ${err.message}`)
+      // Nothing is ever coming back: no browser opened, so no callback will. The
+      // in-app navigation was already prevented on the strength of this flow
+      // starting, so leaving it pending is ten minutes of a window that silently
+      // refused to go anywhere, ending in a timeout that blames the user's wait.
+      if (pending !== flow) return
+      clearTimeout(flow.timer)
+      pending = null
+      flow.finish({ error: 'could not open your browser' })
+    })
+  }
+
+  if (callbackPort) {
+    openWhenReady(callbackPort)
+  } else {
+    console.log('[auth] no loopback listener; opening one before starting the flow')
+    ensureCallbackServer().then(openWhenReady, () => openWhenReady(null))
+  }
   return true
 }
 

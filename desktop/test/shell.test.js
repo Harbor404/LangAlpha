@@ -1098,55 +1098,53 @@ describe('who is allowed to start a sign-in', () => {
   })
 })
 
-describe('an authorize URL with nowhere to come back to', () => {
-  let oauth
-  before(() => {
-    ({ oauth } = loadShell({ edition: 'saas' }))
-    oauth.stopCallbackServer()
-  })
+// `decide` has to answer in the same tick, but the absence of a port must not
+// end the flow. The first click still returns true, and the flow continues once
+// the shared listener start lands.
+test('a sign-in click starts the callback listener when startup did not', async () => {
+  const { oauth: fresh } = loadShell({ edition: 'saas' })
+  fresh.stopCallbackServer()
+  opened.length = 0
+  const landed = []
+  const authorize = new URL(SUPABASE)
+  authorize.searchParams.set('provider', 'google')
+  authorize.searchParams.set('code_challenge', 'FIRST-CLICK-MARKER')
+  authorize.searchParams.set('redirect_to', 'https://app.example.com/auth/callback')
 
-  const authorize = (redirectTo) => {
-    const u = new URL(SUPABASE)
-    u.searchParams.set('provider', 'google')
-    if (redirectTo) u.searchParams.set('redirect_to', redirectTo)
-    return u.toString()
+  assert.equal(fresh.begin(authorize.toString(), windowStub(landed)), true,
+    'declining hands this to the system browser, where it cannot finish')
+
+  const sent = () => opened
+    .map((url) => new URL(url))
+    .find((url) => url.searchParams.get('code_challenge') === 'FIRST-CLICK-MARKER')
+  for (let i = 0; i < 200 && !sent(); i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 10))
   }
 
-  test('is claimed and reported rather than externalized', () => {
-    opened.length = 0
-    const landed = []
-    assert.equal(oauth.begin(authorize('https://app.example.com/auth/callback'), windowStub(landed)), true,
-      'declining hands this to the system browser, where it cannot finish')
-    assert.deepEqual(opened, [], 'nothing should reach the system browser')
-    assert.equal(landed.length, 1, 'the window has to be told')
-    assert.equal(new URL(landed[0]).origin + new URL(landed[0]).pathname, 'https://app.example.com/auth/callback')
-    assert.match(new URL(landed[0]).searchParams.get('error'), /port/)
-  })
+  assert.ok(sent(), 'the first click did not reach the system browser')
+  assert.deepEqual(landed, [], 'the sign-in should not need an error page')
+  assert.match(sent().searchParams.get('redirect_to'), /^http:\/\/127\.0\.0\.1:\d+\/callback$/)
 
-  // The refusal above is for this attempt, not for the session. Reading the port
-  // without ever starting one is what latched a failed boot bind for the life of
-  // the process: every sign-in refused for a condition that may have cleared in
-  // seconds, while the connector path next door recovered on its first retry.
-  test('and starts the listener the click after it will need', async () => {
-    opened.length = 0
-    // Nothing exposes the listener directly, so wait for the effect instead: a
-    // click that reaches the browser is a click that got a port.
-    for (let i = 0; i < 200 && opened.length === 0; i += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 10))
-      oauth.begin(authorize('https://app.example.com/auth/callback'), windowStub([]))
-    }
-    assert.equal(opened.length > 0, true, 'still refused; the failure is latched for the session')
-    assert.match(new URL(opened[0]).searchParams.get('redirect_to'), /^http:\/\/127\.0\.0\.1:\d+\/callback$/)
+  const callback = new URL(sent().searchParams.get('redirect_to'))
+  const status = await new Promise((resolve, reject) => {
+    const req = http.request({
+      host: callback.hostname,
+      port: callback.port,
+      path: `${callback.pathname}?code=FIRST-CLICK-CODE`,
+      agent: false,
+      headers: { 'sec-fetch-dest': 'document' },
+    }, (res) => {
+      res.resume()
+      res.on('end', () => resolve(res.statusCode))
+    })
+    req.on('error', reject)
+    req.end()
   })
+  assert.equal(status, 200)
+  assert.equal(landed.length, 1)
+  assert.equal(new URL(landed[0]).searchParams.get('code'), 'FIRST-CLICK-CODE')
 
-  // The refusal is for flows that are ours. A crafted redirect_to is still not
-  // one, and claiming it would drive our own window wherever it pointed.
-  test('and does not start claiming flows that were never ours', () => {
-    opened.length = 0
-    const landed = []
-    assert.equal(oauth.begin(authorize('https://evil.example.com/callback'), windowStub(landed)), false)
-    assert.deepEqual(landed, [])
-  })
+  fresh.stopCallbackServer()
 })
 
 describe('startup failure', () => {
