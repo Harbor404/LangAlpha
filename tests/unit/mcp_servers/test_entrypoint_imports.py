@@ -32,6 +32,7 @@ _ENTRYPOINT_SERVERS = {
     "price_data_mcp_server": "langalpha_market_data",
     "fundamentals_mcp_server": "langalpha_market_data",
     "macro_mcp_server": "langalpha_market_data",
+    "jawz_mcp_server": "jawz",
     "options_mcp_server": "langalpha_market_data",
     "yf_price_mcp_server": "yfinance",
     "yf_market_mcp_server": "yfinance",

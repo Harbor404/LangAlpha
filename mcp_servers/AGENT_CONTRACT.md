@@ -4,7 +4,7 @@ The agent's only knowledge of these tools comes from their docstrings (parsed in
 prompts and generated sandbox wrappers), and agent-authored code consumes the return
 values at runtime. Both are therefore contracts. This document is the single
 authority for the market-data MCP servers (`price_data`, `options`, `fundamentals`,
-`macro`, `yf_*`). The `x_mcp_server` is exempt (its own conventions predate this and
+`macro`, `jawz`, `yf_*`). The `x_mcp_server` is exempt (its own conventions predate this and
 are already machine-readable).
 
 **Direct LangChain tools follow a different `Returns:` rule.** `src/tools/` and

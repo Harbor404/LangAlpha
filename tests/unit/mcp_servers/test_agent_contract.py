@@ -31,6 +31,7 @@ _SERVERS = {
     "options": "plugins.langalpha_market_data.options_mcp_server",
     "fundamentals": "plugins.langalpha_market_data.fundamentals_mcp_server",
     "macro": "plugins.langalpha_market_data.macro_mcp_server",
+    "jawz": "plugins.jawz.jawz_mcp_server",
     "yf_price": "plugins.yfinance.yf_price_mcp_server",
     "yf_market": "plugins.yfinance.yf_market_mcp_server",
     "yf_analysis": "plugins.yfinance.yf_analysis_mcp_server",

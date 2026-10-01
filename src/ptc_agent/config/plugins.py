@@ -53,6 +53,7 @@ class ServerMeta(BaseModel):
 
     description: str = ""
     instruction: str = ""
+    enabled: bool = True
     tool_exposure_mode: Literal["summary", "detailed"] | None = None
     # Read from a bundle only. An uploaded plugin declares the credentials it
     # expects through the namespace's ``secrets[]``, which also says where
@@ -213,6 +214,7 @@ def _server(
         return None
     common = {
         "name": key,
+        "enabled": meta.enabled,
         "transport": transport,
         "description": meta.description,
         "instruction": meta.instruction,

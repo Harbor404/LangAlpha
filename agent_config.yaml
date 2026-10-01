@@ -80,6 +80,9 @@ mcp:
   #   - name: "yf_price"            # keep ours, show the agent every tool
   #     tool_exposure_mode: "detailed"
   #
+  #   - name: "jawz"                # opt in to the optional Jawz macro MCP
+  #     enabled: true
+  #
   #   - name: "fundamentals"        # keep our description, run your own build
   #     command: "uvx"
   #     args: ["--from", "my-fundamentals-mcp", "serve"]

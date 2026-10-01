@@ -401,6 +401,75 @@
       "symbol"
     ]
   },
+  "mcp:jawz:get_event_calendar": {
+    "doc_lines": [
+      "Fetch Jawz's sourced forward macro-event calendar.",
+      "",
+      "Args:",
+      "    lookahead_days: Days forward to look.",
+      "    event_types: Optional filters: fomc, cpi, nfp, pce, ecb, boj, boe.",
+      "",
+      "Returns:",
+      "    dict: {count, data, source, tool}. data is Jawz's structured calendar",
+      "    with events, as_of, data_sources, and staleness flags. count is the",
+      "    event total. On error: {error: <code>, detail, tool}."
+    ],
+    "params": [
+      "event_types",
+      "lookahead_days"
+    ],
+    "required": []
+  },
+  "mcp:jawz:get_financial_conditions": {
+    "doc_lines": [
+      "Fetch Jawz's structured financial-conditions and liquidity read.",
+      "",
+      "Args:",
+      "    summary_only: Return the composite, direction, and one-line driver only.",
+      "",
+      "Returns:",
+      "    dict: {count, data, source, tool}. data is Jawz's structured financial",
+      "    conditions payload with composite, direction, liquidity basis/change,",
+      "    as-of, and provenance. count is 1. On error: {error: <code>, detail,",
+      "    tool}."
+    ],
+    "params": [
+      "summary_only"
+    ],
+    "required": []
+  },
+  "mcp:jawz:get_liquidity_history": {
+    "doc_lines": [
+      "Fetch Jawz's structured global-liquidity history and liquidity events.",
+      "",
+      "Args:",
+      "    lookback_weeks: Weeks of history to cover (clamped by Jawz to 1-52).",
+      "    interval: Sample cadence, weekly or monthly.",
+      "",
+      "Returns:",
+      "    dict: {count, data, source, tool}. data is Jawz's structured liquidity",
+      "    history: data.rows, events, trend, and basis changes. count is the row",
+      "    total. On error: {error: <code>, detail, tool}."
+    ],
+    "params": [
+      "interval",
+      "lookback_weeks"
+    ],
+    "required": []
+  },
+  "mcp:jawz:get_macro_regime": {
+    "doc_lines": [
+      "Fetch Jawz's structured macro-regime read with source and as-of provenance.",
+      "",
+      "Returns:",
+      "    dict: {count, data, source, tool}. data is Jawz's structured macro",
+      "    regime payload: status, summary (regime and business cycle), pillars,",
+      "    presentation, tables, and provenance. count is 1. On error: {error:",
+      "    <code>, detail, tool}."
+    ],
+    "params": [],
+    "required": []
+  },
   "mcp:macro:get_earnings_calendar": {
     "doc_lines": [
       "Fetch the earnings calendar for all companies reporting in a date range —",

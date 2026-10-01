@@ -165,6 +165,7 @@ While PTC excels at complex work like multi-step data processing, financial mode
 - **Price data** for OHLCV time series across stocks, commodities, crypto, and forex, plus short interest and short volume analytics
 - **Fundamentals** for multi-year financial statements, ratios, growth metrics, valuation, insider trades, dividends and splits, share float, key executives, and technical indicators
 - **Macro economics** for GDP, CPI, unemployment, Fed funds rate, treasury yield curve (1M–30Y), country risk premiums, economic calendar, and earnings calendar
+- **Jawz (optional)** for sourced, as-of-stamped macro regime, financial conditions, global liquidity, and forward event calendar; disabled by default and enabled through `mcp.servers`
 - **Options** for options chain with filtering, historical OHLCV for option contracts, and real-time bid/ask snapshots
 - **Yahoo Finance suite** (price, fundamentals, analysis, market) for keyless coverage of statements, analyst ratings, holders, screening, and calendars
 - **X (Twitter)** read-only post search, user/tweet lookup, and thread fetch for sentiment and event tracking, plus a **scraping** server for JS-rendered and anti-bot-protected pages

@@ -51,11 +51,15 @@ instead of bending `mcp.json`:
 
 - **`servers`** is keyed by the `mcp.json` entry key. `description` and
   `instruction` reach the agent's prompt, so they are worth writing carefully;
+  `enabled` defaults to true; an optional provider ships `false` and an
+  operator flips it on through the normal `mcp.servers` override.
   `tool_exposure_mode` decides whether the agent sees full tool signatures
   (`detailed`) or a summary. An uploaded plugin may declare `description`,
-  `instruction` and `tool_exposure_mode` too; `vault_blueprints` is read here
-  only, because a user plugin declares its credentials through the namespace's
-  `secrets[]`, which also says where each one binds.
+  `instruction` and `tool_exposure_mode` too; `enabled` is read for bundled
+  packages only, so an upload cannot opt itself into a user's workspace.
+  `vault_blueprints` is read here only, because a user plugin declares its
+  credentials through the namespace's `secrets[]`, which also says where each
+  one binds.
 - **`icon`** names the site that owns a wrapper bundle's mark. Ours ship their
   logo with the frontend instead, so a self-host with no outbound network
   still draws them.

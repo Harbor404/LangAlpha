@@ -1,0 +1,33 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "jawz",
+  "version": "1.0.0",
+  "description": "Optional read-only macro regime, financial conditions, global liquidity, and event-calendar data from Jawz, with source and as-of provenance.",
+  "author": {
+    "name": "Jawz",
+    "url": "https://jawz.ai"
+  },
+  "homepage": "https://jawz.ai/docs/mcp",
+  "repository": "https://github.com/ginlix-ai/LangAlpha",
+  "license": "Apache-2.0",
+  "keywords": [
+    "macro",
+    "regime",
+    "financial-conditions",
+    "liquidity",
+    "event-calendar"
+  ],
+  "extensions": {
+    "ai.langalpha": {
+      "icon": "jawz.ai",
+      "servers": {
+        "jawz": {
+          "description": "Structured macro regime, financial conditions, global liquidity, and event calendar from Jawz",
+          "instruction": "Use for Jawz's sourced, as-of-stamped macro regime, financial conditions, global-liquidity, and event-calendar reads. Returns structured JSON with provenance; this optional provider is disabled by default.",
+          "enabled": false,
+          "tool_exposure_mode": "summary"
+        }
+      }
+    }
+  }
+}
